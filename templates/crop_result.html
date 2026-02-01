@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crop Recommendations - Smart Farmer Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f5f7f5; min-height: 100vh; }
+        .navbar {
+            background: linear-gradient(135deg, #2d5016 0%, #4a7c23 100%);
+        }
+        .navbar-brand { color: white !important; font-weight: 700; }
+        .nav-link { color: rgba(255,255,255,0.9) !important; }
+        .weather-card {
+            background: linear-gradient(135deg, #4a7c23 0%, #6b8e23 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        .weather-card h5 { font-weight: 600; margin-bottom: 20px; }
+        .weather-stat {
+            text-align: center;
+            padding: 10px;
+        }
+        .weather-stat .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        .weather-stat .label {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+        .crop-card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border-left: 5px solid #4caf50;
+        }
+        .crop-card.rank-1 { border-left-color: #ffd700; }
+        .crop-card.rank-2 { border-left-color: #c0c0c0; }
+        .crop-card.rank-3 { border-left-color: #cd7f32; }
+        .crop-name {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #2d5016;
+        }
+        .crop-rank {
+            font-size: 0.8rem;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            background: #e8f5e9;
+            color: #2d5016;
+        }
+        .risk-bar {
+            height: 10px;
+            border-radius: 5px;
+            background: #e0e0e0;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .risk-fill {
+            height: 100%;
+            border-radius: 5px;
+        }
+        .risk-low { background: linear-gradient(90deg, #4caf50, #8bc34a); }
+        .risk-medium { background: linear-gradient(90deg, #ff9800, #ffc107); }
+        .risk-high { background: linear-gradient(90deg, #f44336, #e91e63); }
+        .crop-tags span {
+            display: inline-block;
+            background: #f5f5f5;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin: 3px;
+        }
+        .explanation {
+            background: #e8f5e9;
+            padding: 12px 15px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #2d5016;
+            margin-top: 15px;
+        }
+        .btn-back {
+            background: linear-gradient(135deg, #4a7c23 0%, #2d5016 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .btn-back:hover { color: white; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">🌾 Smart Farmer Assistant</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- Weather Summary -->
+        <div class="weather-card">
+            <h5>🌤️ Weather Forecast Summary</h5>
+            <div class="row">
+                <div class="col-3 weather-stat">
+                    <div class="value">{{ results.weather.avg_temp }}°C</div>
+                    <div class="label">Avg Temp</div>
+                </div>
+                <div class="col-3 weather-stat">
+                    <div class="value" style="text-transform: capitalize;">{{ results.weather.rainfall_level }}</div>
+                    <div class="label">Rainfall</div>
+                </div>
+                <div class="col-3 weather-stat">
+                    <div class="value">{{ results.season }}</div>
+                    <div class="label">Season</div>
+                </div>
+                <div class="col-3 weather-stat">
+                    <div class="value" style="font-size: 1rem;">{{ results.location.lat }}, {{ results.location.lon }}</div>
+                    <div class="label">Location</div>
+                </div>
+            </div>
+            {% if not results.weather.success %}
+                <div class="alert alert-warning mt-3 mb-0 py-2">
+                    ⚠️ {{ results.weather.error }}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Crop Recommendations -->
+        <h4 class="mb-3">🏆 Top Recommended Crops</h4>
+
+        {% if results.recommendations %}
+            {% for crop in results.recommendations %}
+                <div class="crop-card rank-{{ loop.index }}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="crop-name">{{ crop.name }}</span>
+                        <span class="crop-rank">
+                            {% if loop.index == 1 %}🥇 Best Choice
+                            {% elif loop.index == 2 %}🥈 Runner Up
+                            {% elif loop.index == 3 %}🥉 Good Option
+                            {% else %}#{{ loop.index }}
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="d-flex align-items-center mb-2">
+                        <span style="width: 100px; font-size: 0.9rem;">Risk Score:</span>
+                        <div class="risk-bar flex-grow-1 mx-2">
+                            <div class="risk-fill {% if crop.risk_score < 40 %}risk-low{% elif crop.risk_score < 70 %}risk-medium{% else %}risk-high{% endif %}" 
+                                 style="width: {{ 100 - crop.risk_score }}%;"></div>
+                        </div>
+                        <strong>{{ crop.risk_score }}/100</strong>
+                    </div>
+
+                    <div class="crop-tags">
+                        <span>🌡️ {{ crop.min_temp }}-{{ crop.max_temp }}°C</span>
+                        <span>💧 {{ crop.rainfall_need }} rain</span>
+                        <span>📅 {{ crop.growing_days }} days</span>
+                        {% if crop.drought_tolerant %}<span>🏜️ Drought Safe</span>{% endif %}
+                        {% if crop.flood_tolerant %}<span>🌊 Flood Safe</span>{% endif %}
+                    </div>
+
+                    <div class="explanation">
+                        💡 {{ crop.explanation }}
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-info">
+                No suitable crops found for current conditions. Try a different season.
+            </div>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('crop_form') }}" class="btn-back me-2">🔄 New Search</a>
+            <a href="{{ url_for('dashboard') }}" class="btn-back" style="background: #6c757d;">← Dashboard</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

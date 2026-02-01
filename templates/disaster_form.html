@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disaster Help - Smart Farmer Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f5f7f5; min-height: 100vh; }
+        .navbar {
+            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+        }
+        .navbar-brand { color: white !important; font-weight: 700; }
+        .nav-link { color: rgba(255,255,255,0.9) !important; }
+        .form-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 600px;
+            margin: 40px auto;
+        }
+        .form-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-header .icon { font-size: 3rem; }
+        .form-header h2 { color: #dc3545; font-weight: 700; margin-top: 10px; }
+        .form-control, .form-select {
+            padding: 14px 16px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 3px rgba(220,53,69,0.1);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #c82333 0%, #921925 100%);
+        }
+        .disaster-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .info-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">🆘 Disaster Help Navigator</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="form-card">
+            <div class="form-header">
+                <div class="icon">🆘📋</div>
+                <h2>Disaster Scheme Navigator</h2>
+                <p class="text-muted">Tell us about your situation to find eligible government schemes</p>
+            </div>
+
+            <div class="info-box">
+                ⚠️ <strong>Important:</strong> Document your crop damage with photos and report to local authorities within 48-72 hours for faster claim processing.
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('disaster_result') }}" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label class="form-label">🌾 Affected Crop</label>
+                    <select class="form-select" name="crop" required>
+                        <option value="">Select the crop affected</option>
+                        {% for crop in crops %}
+                            <option value="{{ crop }}">{{ crop }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">⚠️ Type of Disaster</label>
+                    <select class="form-select" name="disaster_type" required>
+                        <option value="">Select disaster type</option>
+                        {% for disaster in disaster_types %}
+                            <option value="{{ disaster.id }}">{{ disaster.icon }} {{ disaster.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">📐 Land Size (in hectares)</label>
+                        <input type="number" class="form-control" name="land_size" 
+                               placeholder="e.g., 2.5" step="0.1" min="0.1" required>
+                        <small class="text-muted">1 hectare = 2.47 acres</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">🛡️ Do you have crop insurance?</label>
+                        <select class="form-select" name="has_insurance" required>
+                            <option value="no">No, I don't have insurance</option>
+                            <option value="yes">Yes, I have PMFBY/other insurance</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">📷 Upload Damage Photo (Optional)</label>
+                    <input type="file" class="form-control" name="damage_photo" 
+                           accept="image/png, image/jpeg, image/jpg">
+                    <small class="text-muted">Upload a clear photo of crop damage for documentation</small>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">
+                    🔍 Find Eligible Schemes
+                </button>
+            </form>
+
+            <div class="text-center mt-3">
+                <a href="{{ url_for('dashboard') }}" class="text-muted">← Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

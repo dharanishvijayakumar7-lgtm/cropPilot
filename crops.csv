@@ -1,0 +1,13 @@
+crop,min_temp,max_temp,rainfall_need,season,drought_tolerant,flood_tolerant
+Rice,20,35,high,Kharif,0,1
+Wheat,10,25,medium,Rabi,1,0
+Maize,18,32,medium,Kharif,0,0
+Ragi,20,30,low,Kharif,1,0
+Millets,25,35,low,Kharif,1,0
+Barley,5,20,low,Rabi,1,0
+Chickpea,15,30,low,Rabi,1,0
+Mustard,10,25,low,Rabi,1,0
+Groundnut,25,35,medium,Kharif,1,0
+Watermelon,22,35,medium,Zaid,0,0
+Cucumber,20,30,medium,Zaid,0,0
+Muskmelon,24,38,low,Zaid,1,0

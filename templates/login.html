@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Smart Farmer Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #2d5016 0%, #4a7c23 50%, #6b8e23 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+            padding: 40px;
+            max-width: 420px;
+            width: 100%;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo .icon {
+            font-size: 4rem;
+            margin-bottom: 10px;
+        }
+        .logo h1 {
+            color: #2d5016;
+            font-weight: 700;
+            font-size: 1.8rem;
+        }
+        .logo p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .form-control {
+            padding: 12px 15px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+        }
+        .form-control:focus {
+            border-color: #4a7c23;
+            box-shadow: 0 0 0 3px rgba(74, 124, 35, 0.1);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #4a7c23 0%, #2d5016 100%);
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #3d6a1c 0%, #234010 100%);
+            transform: translateY(-2px);
+        }
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .register-link a {
+            color: #4a7c23;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="logo">
+            <div class="icon">🌾👨‍🌾</div>
+            <h1>Smart Farmer Assistant</h1>
+            <p>Crop Advisor & Disaster Help Navigator</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="mb-3">
+                <label class="form-label">📱 Phone Number</label>
+                <input type="tel" class="form-control" name="phone" 
+                       placeholder="Enter 10-digit phone number" 
+                       pattern="[0-9]{10}" maxlength="10" required>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label">🔒 Password</label>
+                <input type="password" class="form-control" name="password" 
+                       placeholder="Enter your password" required>
+            </div>
+            
+            <button type="submit" class="btn btn-primary w-100">
+                Login →
+            </button>
+        </form>
+
+        <div class="register-link">
+            <p class="mb-0">New farmer? <a href="{{ url_for('register') }}">Register here</a></p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+{
+  "schemes": [
+    {
+      "id": "pmfby",
+      "name": "Pradhan Mantri Fasal Bima Yojana (PMFBY)",
+      "description": "Comprehensive crop insurance scheme providing financial support to farmers suffering crop loss due to natural calamities.",
+      "disaster_types": ["flood", "drought", "cyclone", "hailstorm", "pest_attack", "disease"],
+      "eligible_crops": ["Rice", "Wheat", "Maize", "Groundnut", "Mustard", "Chickpea", "Barley", "Millets", "Ragi"],
+      "requires_insurance": true,
+      "min_land_size": 0,
+      "max_land_size": 999,
+      "compensation_percent": 80,
+      "documents_required": [
+        "Aadhaar Card",
+        "Land ownership documents / Tenancy agreement",
+        "Bank account details",
+        "Sowing certificate from Patwari",
+        "Insurance policy document",
+        "Photos of crop damage"
+      ],
+      "application_steps": [
+        "Visit nearest bank branch or CSC center",
+        "Fill PMFBY claim form",
+        "Submit damage photographs and documents",
+        "Crop cutting experiment conducted by officials",
+        "Claim processed within 2 months of harvest"
+      ],
+      "helpline": "1800-180-1551",
+      "website": "https://pmfby.gov.in",
+      "max_amount": 200000
+    },
+    {
+      "id": "sdrf",
+      "name": "State Disaster Response Fund (SDRF)",
+      "description": "Emergency relief fund for farmers affected by natural disasters, managed by state governments.",
+      "disaster_types": ["flood", "drought", "cyclone", "earthquake", "hailstorm", "landslide"],
+      "eligible_crops": ["Rice", "Wheat", "Maize", "Groundnut", "Mustard", "Chickpea", "Barley", "Millets", "Ragi", "Watermelon", "Cucumber", "Muskmelon"],
+      "requires_insurance": false,
+      "min_land_size": 0,
+      "max_land_size": 999,
+      "compensation_percent": 100,
+      "documents_required": [
+        "Aadhaar Card",
+        "Land records (Khatauni/Patta)",
+        "Bank passbook copy",
+        "Damage assessment report from Tehsildar",
+        "Photographs of damaged crops",
+        "FIR copy (if applicable)"
+      ],
+      "application_steps": [
+        "Report damage to Village Pradhan or Patwari within 48 hours",
+        "Get damage assessment done by block officials",
+        "Submit application at Block Development Office",
+        "Verification by district authorities",
+        "Compensation credited to bank account"
+      ],
+      "helpline": "1070",
+      "website": "https://ndma.gov.in",
+      "max_amount": 150000
+    },
+    {
+      "id": "kcc_relief",
+      "name": "Kisan Credit Card - Disaster Relief",
+      "description": "Interest subvention and loan restructuring for KCC holders affected by natural disasters.",
+      "disaster_types": ["flood", "drought", "cyclone", "hailstorm"],
+      "eligible_crops": ["Rice", "Wheat", "Maize", "Groundnut", "Mustard", "Chickpea", "Barley", "Millets", "Ragi"],
+      "requires_insurance": false,
+      "min_land_size": 0,
+      "max_land_size": 999,
+      "compensation_percent": 50,
+      "documents_required": [
+        "Kisan Credit Card",
+        "Aadhaar Card",
+        "Land documents",
+        "Bank loan statement",
+        "Damage certificate from agriculture officer"
+      ],
+      "application_steps": [
+        "Visit your bank branch with KCC",
+        "Submit loan restructuring application",
+        "Provide damage assessment certificate",
+        "Bank processes interest waiver/subvention",
+        "Revised repayment schedule issued"
+      ],
+      "helpline": "1800-180-1111",
+      "website": "https://www.nabard.org",
+      "max_amount": 100000
+    },
+    {
+      "id": "input_subsidy",
+      "name": "Agriculture Input Subsidy",
+      "description": "Direct benefit transfer for purchasing seeds, fertilizers and equipment after crop damage.",
+      "disaster_types": ["flood", "drought", "pest_attack", "disease", "hailstorm"],
+      "eligible_crops": ["Rice", "Wheat", "Maize", "Groundnut", "Mustard", "Chickpea", "Barley", "Millets", "Ragi", "Watermelon", "Cucumber", "Muskmelon"],
+      "requires_insurance": false,
+      "min_land_size": 0,
+      "max_land_size": 5,
+      "compensation_percent": 75,
+      "documents_required": [
+        "Aadhaar Card",
+        "Land records",
+        "Bank account details",
+        "Damage report from agriculture department",
+        "Input purchase bills (if any)"
+      ],
+      "application_steps": [
+        "Register on DBT Agriculture portal",
+        "Apply for input subsidy online or at Krishi Bhawan",
+        "Field verification by agriculture officer",
+        "Approval by District Agriculture Officer",
+        "Subsidy transferred to bank account"
+      ],
+      "helpline": "1551",
+      "website": "https://dbtagriculture.bihar.gov.in",
+      "max_amount": 50000
+    },
+    {
+      "id": "drought_relief",
+      "name": "National Drought Relief Package",
+      "description": "Special relief package for farmers in drought-declared areas with employment guarantee and food security.",
+      "disaster_types": ["drought"],
+      "eligible_crops": ["Rice", "Wheat", "Maize", "Groundnut", "Mustard", "Chickpea", "Barley", "Millets", "Ragi"],
+      "requires_insurance": false,
+      "min_land_size": 0,
+      "max_land_size": 999,
+      "compensation_percent": 100,
+      "documents_required": [
+        "Aadhaar Card",
+        "Ration Card",
+        "Land ownership proof",
+        "Bank account details",
+        "Job Card (for MGNREGA work)"
+      ],
+      "application_steps": [
+        "Area must be declared drought-affected by state",
+        "Register at Gram Panchayat office",
+        "Automatic enrollment for food grain distribution",
+        "Apply for MGNREGA employment",
+        "Receive compensation as per land holding"
+      ],
+      "helpline": "1800-345-3000",
+      "website": "https://agricoop.nic.in",
+      "max_amount": 100000
+    },
+    {
+      "id": "small_farmer_relief",
+      "name": "Small & Marginal Farmer Relief Scheme",
+      "description": "Special assistance for small farmers (less than 2 hectares) affected by any natural disaster.",
+      "disaster_types": ["flood", "drought", "cyclone", "hailstorm", "pest_attack", "disease", "earthquake", "landslide"],
+      "eligible_crops": ["Rice", "Wheat", "Maize", "Groundnut", "Mustard", "Chickpea", "Barley", "Millets", "Ragi", "Watermelon", "Cucumber", "Muskmelon"],
+      "requires_insurance": false,
+      "min_land_size": 0,
+      "max_land_size": 2,
+      "compensation_percent": 100,
+      "documents_required": [
+        "Aadhaar Card",
+        "Land records showing less than 2 hectares",
+        "Bank passbook",
+        "Caste certificate (if applicable for additional benefits)",
+        "Damage assessment report"
+      ],
+      "application_steps": [
+        "Apply at nearest Krishi Vigyan Kendra",
+        "Submit land records proving small farmer status",
+        "Field verification within 7 days",
+        "Sanction letter issued",
+        "Amount credited within 15 days of approval"
+      ],
+      "helpline": "1800-180-1551",
+      "website": "https://pmkisan.gov.in",
+      "max_amount": 75000
+    }
+  ],
+  "disaster_types": [
+    {"id": "flood", "name": "Flood", "icon": "🌊"},
+    {"id": "drought", "name": "Drought", "icon": "☀️"},
+    {"id": "cyclone", "name": "Cyclone/Storm", "icon": "🌀"},
+    {"id": "hailstorm", "name": "Hailstorm", "icon": "🧊"},
+    {"id": "pest_attack", "name": "Pest Attack", "icon": "🦗"},
+    {"id": "disease", "name": "Crop Disease", "icon": "🦠"},
+    {"id": "earthquake", "name": "Earthquake", "icon": "🏚️"},
+    {"id": "landslide", "name": "Landslide", "icon": "⛰️"}
+  ],
+  "states": [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
+    "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
+    "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+    "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+  ]
+}

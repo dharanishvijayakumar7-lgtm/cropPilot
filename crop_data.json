@@ -1,0 +1,150 @@
+{
+  "crops": [
+    {
+      "name": "Rice",
+      "min_temp": 20,
+      "max_temp": 35,
+      "rainfall_need": "high",
+      "season": "Kharif",
+      "drought_tolerant": false,
+      "flood_tolerant": true,
+      "soil_types": ["clay", "loamy"],
+      "growing_days": 120
+    },
+    {
+      "name": "Wheat",
+      "min_temp": 10,
+      "max_temp": 25,
+      "rainfall_need": "medium",
+      "season": "Rabi",
+      "drought_tolerant": true,
+      "flood_tolerant": false,
+      "soil_types": ["loamy", "sandy loam"],
+      "growing_days": 135
+    },
+    {
+      "name": "Maize",
+      "min_temp": 18,
+      "max_temp": 32,
+      "rainfall_need": "medium",
+      "season": "Kharif",
+      "drought_tolerant": false,
+      "flood_tolerant": false,
+      "soil_types": ["loamy", "sandy loam"],
+      "growing_days": 95
+    },
+    {
+      "name": "Ragi",
+      "min_temp": 20,
+      "max_temp": 30,
+      "rainfall_need": "low",
+      "season": "Kharif",
+      "drought_tolerant": true,
+      "flood_tolerant": false,
+      "soil_types": ["red soil", "sandy"],
+      "growing_days": 110
+    },
+    {
+      "name": "Millets",
+      "min_temp": 25,
+      "max_temp": 35,
+      "rainfall_need": "low",
+      "season": "Kharif",
+      "drought_tolerant": true,
+      "flood_tolerant": false,
+      "soil_types": ["sandy", "loamy"],
+      "growing_days": 75
+    },
+    {
+      "name": "Barley",
+      "min_temp": 5,
+      "max_temp": 20,
+      "rainfall_need": "low",
+      "season": "Rabi",
+      "drought_tolerant": true,
+      "flood_tolerant": false,
+      "soil_types": ["loamy", "sandy loam"],
+      "growing_days": 130
+    },
+    {
+      "name": "Chickpea",
+      "min_temp": 15,
+      "max_temp": 30,
+      "rainfall_need": "low",
+      "season": "Rabi",
+      "drought_tolerant": true,
+      "flood_tolerant": false,
+      "soil_types": ["loamy", "black soil"],
+      "growing_days": 100
+    },
+    {
+      "name": "Mustard",
+      "min_temp": 10,
+      "max_temp": 25,
+      "rainfall_need": "low",
+      "season": "Rabi",
+      "drought_tolerant": true,
+      "flood_tolerant": false,
+      "soil_types": ["loamy", "sandy loam"],
+      "growing_days": 120
+    },
+    {
+      "name": "Groundnut",
+      "min_temp": 25,
+      "max_temp": 35,
+      "rainfall_need": "medium",
+      "season": "Kharif",
+      "drought_tolerant": true,
+      "flood_tolerant": false,
+      "soil_types": ["sandy loam", "red soil"],
+      "growing_days": 105
+    },
+    {
+      "name": "Watermelon",
+      "min_temp": 22,
+      "max_temp": 35,
+      "rainfall_need": "medium",
+      "season": "Zaid",
+      "drought_tolerant": false,
+      "flood_tolerant": false,
+      "soil_types": ["sandy loam", "loamy"],
+      "growing_days": 85
+    },
+    {
+      "name": "Cucumber",
+      "min_temp": 20,
+      "max_temp": 30,
+      "rainfall_need": "medium",
+      "season": "Zaid",
+      "drought_tolerant": false,
+      "flood_tolerant": false,
+      "soil_types": ["loamy", "sandy loam"],
+      "growing_days": 55
+    },
+    {
+      "name": "Muskmelon",
+      "min_temp": 24,
+      "max_temp": 38,
+      "rainfall_need": "low",
+      "season": "Zaid",
+      "drought_tolerant": true,
+      "flood_tolerant": false,
+      "soil_types": ["sandy loam", "loamy"],
+      "growing_days": 90
+    }
+  ],
+  "seasons": {
+    "Kharif": {
+      "months": "June - October",
+      "description": "Monsoon season crops"
+    },
+    "Rabi": {
+      "months": "October - March",
+      "description": "Winter season crops"
+    },
+    "Zaid": {
+      "months": "March - June",
+      "description": "Summer season crops"
+    }
+  }
+}

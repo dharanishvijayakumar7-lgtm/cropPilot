@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eligible Schemes - Smart Farmer Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f5f7f5; min-height: 100vh; }
+        .navbar {
+            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+        }
+        .navbar-brand { color: white !important; font-weight: 700; }
+        .nav-link { color: rgba(255,255,255,0.9) !important; }
+        .summary-card {
+            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        .summary-card h5 { font-weight: 600; }
+        .summary-item {
+            background: rgba(255,255,255,0.15);
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin: 5px 0;
+        }
+        .scheme-card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border-top: 5px solid #4caf50;
+        }
+        .scheme-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #2d5016;
+            margin-bottom: 10px;
+        }
+        .scheme-desc {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .scheme-amount {
+            background: #e8f5e9;
+            color: #2d5016;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+        .section-title {
+            font-weight: 600;
+            color: #333;
+            margin: 20px 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .reason-list, .doc-list, .step-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .reason-list li {
+            background: #e3f2fd;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+        .doc-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .doc-list li:last-child { border: none; }
+        .doc-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #4caf50;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .step-list li {
+            padding: 12px;
+            background: #f8f9fa;
+            margin: 8px 0;
+            border-radius: 8px;
+            display: flex;
+            gap: 12px;
+        }
+        .step-number {
+            background: #4caf50;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        .contact-info {
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        .contact-info a {
+            color: #e65100;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .btn-back {
+            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .btn-back:hover { color: white; }
+        .no-schemes {
+            background: white;
+            border-radius: 16px;
+            padding: 50px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .no-schemes h3 { color: #666; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">🆘 Disaster Help Navigator</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- Summary Card -->
+        <div class="summary-card">
+            <h5>📋 Your Disaster Report Summary</h5>
+            <div class="row mt-3">
+                <div class="col-md-3 col-6">
+                    <div class="summary-item">
+                        <small>Affected Crop</small>
+                        <div><strong>{{ crop }}</strong></div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="summary-item">
+                        <small>Disaster Type</small>
+                        <div><strong>{{ disaster_info.icon }} {{ disaster_info.name }}</strong></div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="summary-item">
+                        <small>Land Size</small>
+                        <div><strong>{{ land_size }} hectares</strong></div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="summary-item">
+                        <small>Insurance</small>
+                        <div><strong>{{ 'Yes ✓' if has_insurance else 'No ✗' }}</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Eligible Schemes -->
+        <h4 class="mb-3">✅ Eligible Government Schemes ({{ schemes|length }} found)</h4>
+
+        {% if schemes %}
+            {% for scheme in schemes %}
+                <div class="scheme-card">
+                    <div class="scheme-name">{{ scheme.name }}</div>
+                    <p class="scheme-desc">{{ scheme.description }}</p>
+                    
+                    <div class="scheme-amount">
+                        💰 Up to ₹{{ "{:,}".format(scheme.max_amount) }} compensation
+                    </div>
+
+                    <!-- Eligibility Reasons -->
+                    <div class="section-title">✅ Why You're Eligible</div>
+                    <ul class="reason-list">
+                        {% for reason in scheme.reasons %}
+                            <li>{{ reason }}</li>
+                        {% endfor %}
+                    </ul>
+
+                    <!-- Documents Checklist -->
+                    <div class="section-title">📄 Documents Required (Checklist)</div>
+                    <ul class="doc-list">
+                        {% for doc in scheme.documents %}
+                            <li>
+                                <input type="checkbox" class="doc-checkbox">
+                                <span>{{ doc }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+
+                    <!-- Application Steps -->
+                    <div class="section-title">📝 How to Apply</div>
+                    <ul class="step-list">
+                        {% for step in scheme.steps %}
+                            <li>
+                                <span class="step-number">{{ loop.index }}</span>
+                                <span>{{ step }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+
+                    <!-- Contact Info -->
+                    <div class="contact-info">
+                        <strong>📞 Helpline:</strong> {{ scheme.helpline }} &nbsp;|&nbsp;
+                        <strong>🌐 Website:</strong> <a href="{{ scheme.website }}" target="_blank">{{ scheme.website }}</a>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-schemes">
+                <h3>😔 No exact scheme matches found</h3>
+                <p class="text-muted">But don't worry! Contact your local Block Development Office or Krishi Bhawan for assistance.</p>
+                <p><strong>📞 Kisan Call Center:</strong> 1800-180-1551 (Toll Free)</p>
+            </div>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('disaster_form') }}" class="btn-back me-2">🔄 New Search</a>
+            <a href="{{ url_for('dashboard') }}" class="btn-back" style="background: #6c757d;">← Dashboard</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Save checkbox states to localStorage
+        document.querySelectorAll('.doc-checkbox').forEach((checkbox, index) => {
+            const key = `doc_${window.location.pathname}_${index}`;
+            checkbox.checked = localStorage.getItem(key) === 'true';
+            checkbox.addEventListener('change', () => {
+                localStorage.setItem(key, checkbox.checked);
+            });
+        });
+    </script>
+</body>
+</html>

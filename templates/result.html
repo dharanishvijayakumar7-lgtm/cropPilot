@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recommendations - CropPilot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #2e7d32;
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+
+        .header a {
+            color: #4caf50;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .header a:hover {
+            text-decoration: underline;
+        }
+
+        .weather-card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .weather-card h2 {
+            color: #333;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .weather-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+        }
+
+        .weather-item {
+            text-align: center;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 12px;
+        }
+
+        .weather-item .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2e7d32;
+        }
+
+        .weather-item .label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .weather-warning {
+            background: #fff3e0;
+            color: #e65100;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.85rem;
+        }
+
+        .section-title {
+            color: #333;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .crop-card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border-left: 5px solid #4caf50;
+            transition: transform 0.2s;
+        }
+
+        .crop-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .crop-card.rank-1 {
+            border-left-color: #ffd700;
+        }
+
+        .crop-card.rank-2 {
+            border-left-color: #c0c0c0;
+        }
+
+        .crop-card.rank-3 {
+            border-left-color: #cd7f32;
+        }
+
+        .crop-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .crop-name {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .crop-rank {
+            font-size: 0.8rem;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .rank-1 .crop-rank {
+            background: #fff8e1;
+            color: #f57f17;
+        }
+
+        .rank-2 .crop-rank {
+            background: #f5f5f5;
+            color: #616161;
+        }
+
+        .rank-3 .crop-rank {
+            background: #fbe9e7;
+            color: #bf360c;
+        }
+
+        .risk-score {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .risk-bar-container {
+            flex: 1;
+            height: 12px;
+            background: #e0e0e0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .risk-bar {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.5s ease;
+        }
+
+        .risk-low {
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+        }
+
+        .risk-medium {
+            background: linear-gradient(90deg, #ff9800, #ffc107);
+        }
+
+        .risk-high {
+            background: linear-gradient(90deg, #f44336, #e91e63);
+        }
+
+        .risk-value {
+            font-weight: 700;
+            font-size: 1.1rem;
+            min-width: 50px;
+        }
+
+        .risk-value.low { color: #4caf50; }
+        .risk-value.medium { color: #ff9800; }
+        .risk-value.high { color: #f44336; }
+
+        .crop-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .detail-tag {
+            background: #f5f5f5;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        .detail-tag .icon {
+            margin-right: 5px;
+        }
+
+        .explanation {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #2e7d32;
+            line-height: 1.5;
+        }
+
+        .no-results {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .no-results h3 {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .back-btn {
+            display: inline-block;
+            padding: 14px 30px;
+            background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            margin-top: 30px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(46, 125, 50, 0.3);
+        }
+
+        @media (max-width: 600px) {
+            .crop-header {
+                flex-direction: column;
+            }
+
+            .weather-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .crop-details {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌾 CropPilot Recommendations</h1>
+            <a href="/">← Back to Home</a>
+        </div>
+
+        <!-- Weather Summary Card -->
+        <div class="weather-card">
+            <h2>🌤️ Weather Forecast Summary</h2>
+            <div class="weather-grid">
+                <div class="weather-item">
+                    <div class="value">{{ results.weather.avg_temp }}°C</div>
+                    <div class="label">Avg Temperature</div>
+                </div>
+                <div class="weather-item">
+                    <div class="value" style="text-transform: capitalize;">{{ results.weather.rainfall_level }}</div>
+                    <div class="label">Rainfall Level</div>
+                </div>
+                <div class="weather-item">
+                    <div class="value">{{ results.season }}</div>
+                    <div class="label">Season</div>
+                </div>
+                <div class="weather-item">
+                    <div class="value">{{ results.location.lat }}, {{ results.location.lon }}</div>
+                    <div class="label">Coordinates</div>
+                </div>
+            </div>
+            {% if not results.weather.success %}
+            <div class="weather-warning">
+                ⚠️ {{ results.weather.error }}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Crop Recommendations -->
+        <h2 class="section-title">🏆 Top Recommended Crops</h2>
+
+        {% if results.recommendations %}
+            {% for crop in results.recommendations %}
+            <div class="crop-card rank-{{ loop.index }}">
+                <div class="crop-header">
+                    <span class="crop-name">{{ crop.crop }}</span>
+                    <span class="crop-rank">
+                        {% if loop.index == 1 %}🥇 Best Choice
+                        {% elif loop.index == 2 %}🥈 Runner Up
+                        {% else %}🥉 Good Option
+                        {% endif %}
+                    </span>
+                </div>
+
+                <div class="risk-score">
+                    <span>Risk Score:</span>
+                    <div class="risk-bar-container">
+                        <div class="risk-bar {% if crop.risk_score < 40 %}risk-low{% elif crop.risk_score < 70 %}risk-medium{% else %}risk-high{% endif %}" 
+                             style="width: {{ 100 - crop.risk_score }}%;">
+                        </div>
+                    </div>
+                    <span class="risk-value {% if crop.risk_score < 40 %}low{% elif crop.risk_score < 70 %}medium{% else %}high{% endif %}">
+                        {{ crop.risk_score }}/100
+                    </span>
+                </div>
+
+                <div class="crop-details">
+                    <div class="detail-tag">
+                        <span class="icon">🌡️</span>
+                        {{ crop.min_temp }}-{{ crop.max_temp }}°C
+                    </div>
+                    <div class="detail-tag">
+                        <span class="icon">💧</span>
+                        {{ crop.rainfall_need }} rain
+                    </div>
+                    {% if crop.drought_tolerant %}
+                    <div class="detail-tag">
+                        <span class="icon">🏜️</span>
+                        Drought Safe
+                    </div>
+                    {% endif %}
+                    {% if crop.flood_tolerant %}
+                    <div class="detail-tag">
+                        <span class="icon">🌊</span>
+                        Flood Safe
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="explanation">
+                    💡 {{ crop.explanation }}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-results">
+                <h3>😕 No suitable crops found</h3>
+                <p>Try selecting a different season or location.</p>
+            </div>
+        {% endif %}
+
+        <div style="text-align: center;">
+            <a href="/" class="back-btn">🔄 New Search</a>
+        </div>
+    </div>
+</body>
+</html>
