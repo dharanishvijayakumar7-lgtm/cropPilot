@@ -23,8 +23,17 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 
 # OpenWeather API configuration
-OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY', 'YOUR_API_KEY_HERE')
+OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY', '')
 OPENWEATHER_URL = "https://api.openweathermap.org/data/2.5/forecast"
+
+# Check if API key is configured
+if not OPENWEATHER_API_KEY or OPENWEATHER_API_KEY == 'YOUR_API_KEY_HERE':
+    print("=" * 60)
+    print("⚠️  WARNING: OpenWeather API key not configured!")
+    print("   Get a free API key from: https://openweathermap.org/api")
+    print("   Then add it to your .env file as:")
+    print("   OPENWEATHER_API_KEY=your_actual_api_key")
+    print("=" * 60)
 
 # Load ML model and encoders
 model, rainfall_encoder, season_encoder = load_model()
@@ -82,7 +91,16 @@ def load_schemes_data():
         return json.load(f)
 
 def get_weather_forecast(lat, lon):
-    """Fetch 5-day weather forecast from OpenWeather API."""
+    """
+    Fetch 5-day weather forecast from OpenWeather API.
+    Falls back to location-based estimates if API fails.
+    """
+    
+    # Check if API key is valid
+    if not OPENWEATHER_API_KEY or OPENWEATHER_API_KEY == 'YOUR_API_KEY_HERE' or len(OPENWEATHER_API_KEY) < 20:
+        print("⚠️ No valid API key, using location-based weather estimation")
+        return estimate_weather_from_location(lat, lon)
+    
     params = {
         'lat': lat,
         'lon': lon,
@@ -91,20 +109,38 @@ def get_weather_forecast(lat, lon):
     }
     
     try:
-        response = requests.get(OPENWEATHER_URL, params=params, timeout=10)
+        print(f"🌤️ Fetching weather for coordinates: ({lat}, {lon})")
+        response = requests.get(OPENWEATHER_URL, params=params, timeout=15)
+        
+        # Check for API errors
+        if response.status_code == 401:
+            print("❌ API Key invalid or not activated yet (takes ~10 mins after signup)")
+            return estimate_weather_from_location(lat, lon, 
+                error="API key invalid. Using estimated weather based on location.")
+        
+        if response.status_code == 429:
+            print("❌ API rate limit exceeded")
+            return estimate_weather_from_location(lat, lon,
+                error="Weather API rate limit. Using estimated weather.")
+        
         response.raise_for_status()
         data = response.json()
         
+        # Parse weather data
         temps = []
         total_rainfall = 0
+        humidity_values = []
         
         for item in data.get('list', []):
             temps.append(item['main']['temp'])
+            humidity_values.append(item['main'].get('humidity', 50))
             if 'rain' in item:
                 total_rainfall += item['rain'].get('3h', 0)
         
         avg_temp = sum(temps) / len(temps) if temps else 25
+        avg_humidity = sum(humidity_values) / len(humidity_values) if humidity_values else 50
         
+        # Determine rainfall level
         if total_rainfall < 10:
             rainfall_level = 'low'
         elif total_rainfall < 50:
@@ -112,22 +148,119 @@ def get_weather_forecast(lat, lon):
         else:
             rainfall_level = 'high'
         
+        # Get city name if available
+        city_name = data.get('city', {}).get('name', 'Unknown')
+        
+        print(f"✅ Weather fetched successfully for {city_name}")
+        print(f"   Temperature: {avg_temp:.1f}°C, Rainfall: {total_rainfall:.1f}mm ({rainfall_level})")
+        
         return {
             'avg_temp': round(avg_temp, 1),
             'total_rainfall': round(total_rainfall, 1),
             'rainfall_level': rainfall_level,
-            'success': True
+            'humidity': round(avg_humidity, 1),
+            'city': city_name,
+            'success': True,
+            'source': 'OpenWeather API'
         }
         
+    except requests.exceptions.Timeout:
+        print("❌ Weather API timeout")
+        return estimate_weather_from_location(lat, lon,
+            error="Weather API timeout. Using estimated weather.")
+    
+    except requests.exceptions.ConnectionError:
+        print("❌ No internet connection")
+        return estimate_weather_from_location(lat, lon,
+            error="No internet connection. Using estimated weather.")
+    
     except requests.RequestException as e:
-        print(f"Weather API error: {e}")
-        return {
-            'avg_temp': 25.0,
-            'total_rainfall': 0,
-            'rainfall_level': 'medium',
-            'success': False,
-            'error': 'Could not fetch weather data. Using default values.'
-        }
+        print(f"❌ Weather API error: {e}")
+        return estimate_weather_from_location(lat, lon,
+            error=f"Weather API error. Using estimated weather.")
+    
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        return estimate_weather_from_location(lat, lon,
+            error="Unexpected error. Using estimated weather.")
+
+
+def estimate_weather_from_location(lat, lon, error=None):
+    """
+    Estimate weather based on latitude and current month.
+    This is a fallback when API is unavailable.
+    """
+    import datetime
+    
+    current_month = datetime.datetime.now().month
+    
+    # Estimate temperature based on latitude and season
+    # India lies between 8°N to 37°N latitude
+    
+    # Base temperature varies with latitude (closer to equator = warmer)
+    if lat < 15:  # South India (Kerala, Tamil Nadu, Karnataka)
+        base_temp = 28
+    elif lat < 23:  # Central India (Maharashtra, MP, Telangana)
+        base_temp = 26
+    elif lat < 28:  # North Central (UP, Bihar, Rajasthan)
+        base_temp = 24
+    else:  # North India (Punjab, HP, J&K)
+        base_temp = 20
+    
+    # Adjust for season (Northern Hemisphere)
+    if current_month in [12, 1, 2]:  # Winter
+        temp_adjustment = -8
+        base_rainfall = 'low'
+    elif current_month in [3, 4, 5]:  # Summer
+        temp_adjustment = 6
+        base_rainfall = 'low'
+    elif current_month in [6, 7, 8, 9]:  # Monsoon
+        temp_adjustment = 2
+        base_rainfall = 'high'
+    else:  # Post-monsoon (Oct, Nov)
+        temp_adjustment = -2
+        base_rainfall = 'medium'
+    
+    estimated_temp = base_temp + temp_adjustment
+    
+    # Adjust rainfall for coastal areas (closer to ocean)
+    # If longitude suggests coastal area, increase rainfall
+    if lon < 75 or lon > 85:  # Coastal regions
+        if base_rainfall == 'low':
+            base_rainfall = 'medium'
+    
+    # Estimate rainfall amounts
+    rainfall_amounts = {'low': 5, 'medium': 30, 'high': 80}
+    
+    # Determine region name
+    if lat < 15:
+        region = "South India"
+    elif lat < 23:
+        region = "Central India"
+    elif lat < 28:
+        region = "North-Central India"
+    else:
+        region = "North India"
+    
+    print(f"📍 Estimated weather for {region} (lat: {lat:.2f})")
+    print(f"   Estimated temp: {estimated_temp}°C, Rainfall: {base_rainfall}")
+    
+    result = {
+        'avg_temp': round(estimated_temp, 1),
+        'total_rainfall': rainfall_amounts[base_rainfall],
+        'rainfall_level': base_rainfall,
+        'humidity': 60,
+        'city': region,
+        'success': False,
+        'source': 'Location-based estimate',
+        'note': 'Weather estimated based on your location and current season.'
+    }
+    
+    if error:
+        result['error'] = error
+    
+    return result
+
 
 def filter_crops_by_conditions(crops_df, avg_temp, rainfall_level, season):
     """Filter crops based on weather and season conditions."""
@@ -239,7 +372,7 @@ def recommend_crops(lat, lon, season):
         })
     
     recommendations.sort(key=lambda x: x['risk_score'])
-    top_recommendations = recommendations[:3]
+    top_recommendations = recommendations[:5]  # Return top 5 instead of 3
     
     return {
         'weather': weather,
@@ -274,7 +407,7 @@ def find_eligible_schemes(crop, disaster_type, land_size, has_insurance):
         # Build eligibility reasons
         reasons = []
         reasons.append(f"Your crop ({crop}) is covered under this scheme")
-        reasons.append(f"Disaster type ({disaster_type}) is eligible")
+        reasons.append(f"Disaster type ({disaster_type.replace('_', ' ')}) is eligible")
         reasons.append(f"Your land size ({land_size} hectares) meets the criteria")
         if has_insurance and 'insurance' in scheme['id']:
             reasons.append("You have crop insurance which qualifies for claims")
@@ -312,7 +445,7 @@ def login():
     if request.method == 'POST':
         phone = request.form.get('phone', '').strip()
         password = request.form.get('password', '')
-        input_name = request.form.get('name', '').strip()  # Get name from form
+        input_name = request.form.get('name', '').strip()
 
         if not phone or not password:
             flash('Please enter phone number and password.', 'danger')
@@ -324,13 +457,11 @@ def login():
 
         if user and check_password_hash(user['password_hash'], password):
             session['user_id'] = user['id']
-            # Use input name if provided, otherwise use registered name
             session['user_name'] = input_name if input_name else user['name']
             session['user_phone'] = user['phone']
             session['user_state'] = user['state']
             session['user_district'] = user['district']
             
-            # Personalized welcome message
             display_name = input_name if input_name else user['name']
             flash(f'🙏 Namaste, {display_name}! Welcome back!', 'success')
             return redirect(url_for('dashboard'))
@@ -506,6 +637,20 @@ def disaster_result():
         flash('An error occurred. Please try again.', 'danger')
         return redirect(url_for('disaster_form'))
 
+# API Status check route
+@app.route('/api-status')
+@login_required
+def api_status():
+    """Check if OpenWeather API is working."""
+    # Test with Delhi coordinates
+    weather = get_weather_forecast(28.6139, 77.2090)
+    return {
+        'api_configured': bool(OPENWEATHER_API_KEY and len(OPENWEATHER_API_KEY) > 20),
+        'api_working': weather.get('success', False),
+        'weather_source': weather.get('source', 'Unknown'),
+        'test_data': weather
+    }
+
 # Ensure model is trained before first request
 @app.before_request
 def ensure_model():
@@ -520,6 +665,18 @@ if __name__ == '__main__':
         print("Training ML model for first time...")
         train_model()
     
-    print("Starting Smart Farmer Assistant...")
-    print("Open http://127.0.0.1:5000 in your browser")
+    print("\n" + "=" * 60)
+    print("🌾 Smart Farmer Assistant - Starting...")
+    print("=" * 60)
+    
+    if OPENWEATHER_API_KEY and len(OPENWEATHER_API_KEY) > 20:
+        print("✅ OpenWeather API key configured")
+    else:
+        print("⚠️  OpenWeather API key NOT configured")
+        print("   Weather will be estimated based on location")
+        print("   Get free API key: https://openweathermap.org/api")
+    
+    print("\n🌐 Open http://127.0.0.1:5000 in your browser")
+    print("=" * 60 + "\n")
+    
     app.run(debug=True, host='0.0.0.0', port=5000)
