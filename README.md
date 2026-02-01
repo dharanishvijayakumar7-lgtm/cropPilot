@@ -1,4 +1,4 @@
-# 🌾 Smart Farmer Assistant
+# 🌾 CropPilot
 
 ## Crop Advisor & Disaster Help Navigator
 
