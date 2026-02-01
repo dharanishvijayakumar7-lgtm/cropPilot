@@ -338,7 +338,7 @@
                     <span>Risk Score:</span>
                     <div class="risk-bar-container">
                         <div class="risk-bar {% if crop.risk_score < 40 %}risk-low{% elif crop.risk_score < 70 %}risk-medium{% else %}risk-high{% endif %}" 
-                             style="width: {{ 100 - crop.risk_score }}%;">
+                            style="width: {{ 100 - crop.risk_score }}%;">
                         </div>
                     </div>
                     <span class="risk-value {% if crop.risk_score < 40 %}low{% elif crop.risk_score < 70 %}medium{% else %}high{% endif %}">
