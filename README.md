@@ -675,31 +675,20 @@ This returns JSON showing API configuration status and test weather data.
 
 ## 📸 Screenshots
 
-### Login Page
-![Login Page](screenshots/login.png)
-*Secure farmer authentication with phone number*
+## 📸 Screenshots
 
-### Dashboard
+### 🔐 Login Page
+![Login](screenshots/login.png)
+
+### 🧭 Dashboard
 ![Dashboard](screenshots/dashboard.png)
-*Central hub for all features*
 
-### Crop Advisory Form
-![Crop Form](screenshots/crop_form.png)
-*Enter location coordinates and season*
+### 🌱 Crop Advisory Result
+![Crop Result](screenshots/cropresult.png)
 
-### Crop Recommendations
-![Crop Results](screenshots/crop_result.png)
-*Weather-based crop suggestions with risk scores*
+### 🌪️ Disaster Scheme Result
+![Disaster Result](screenshots/schemesresult.png)
 
-### Disaster Help Form
-![Disaster Form](screenshots/disaster_form.png)
-*Input disaster details and farm information*
-
-### Eligible Schemes
-![Disaster Results](screenshots/disaster_result.png)
-*Matched government schemes with full details*
-
-> **Note**: Create a `screenshots/` folder and add actual screenshots of your running application.
 
 ---
 
