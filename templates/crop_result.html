@@ -12,6 +12,51 @@
         }
         .navbar-brand { color: white !important; font-weight: 700; }
         .nav-link { color: rgba(255,255,255,0.9) !important; }
+        
+        /* Location Card */
+        .location-card {
+            background: linear-gradient(135deg, #1a237e 0%, #3949ab 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .location-card h5 { font-weight: 600; margin-bottom: 15px; }
+        .location-detail {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .location-detail:last-child { border-bottom: none; }
+        .location-detail .icon {
+            font-size: 1.5rem;
+            margin-right: 15px;
+            width: 40px;
+            text-align: center;
+        }
+        .location-detail .info {
+            flex-grow: 1;
+        }
+        .location-detail .label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+        }
+        .location-detail .value {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .location-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        
+        /* Weather Card */
         .weather-card {
             background: linear-gradient(135deg, #4a7c23 0%, #6b8e23 100%);
             color: white;
@@ -32,6 +77,24 @@
             font-size: 0.85rem;
             opacity: 0.9;
         }
+        .weather-source {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .weather-warning {
+            background: rgba(255,193,7,0.3);
+            border: 1px solid rgba(255,193,7,0.5);
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+        
+        /* Crop Cards */
         .crop-card {
             background: white;
             border-radius: 16px;
@@ -95,7 +158,17 @@
             font-weight: 600;
             text-decoration: none;
         }
-        .btn-back:hover { color: white; }
+        .btn-back:hover { color: white; transform: translateY(-2px); }
+        
+        /* Coordinates display */
+        .coords-display {
+            background: rgba(255,255,255,0.1);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -110,36 +183,117 @@
     </nav>
 
     <div class="container py-4">
-        <!-- Weather Summary -->
-        <div class="weather-card">
-            <h5>🌤️ Weather Forecast Summary</h5>
-            <div class="row">
-                <div class="col-3 weather-stat">
-                    <div class="value">{{ results.weather.avg_temp }}°C</div>
-                    <div class="label">Avg Temp</div>
-                </div>
-                <div class="col-3 weather-stat">
-                    <div class="value" style="text-transform: capitalize;">{{ results.weather.rainfall_level }}</div>
-                    <div class="label">Rainfall</div>
-                </div>
-                <div class="col-3 weather-stat">
-                    <div class="value">{{ results.season }}</div>
-                    <div class="label">Season</div>
-                </div>
-                <div class="col-3 weather-stat">
-                    <div class="value" style="font-size: 1rem;">{{ results.location.lat }}, {{ results.location.lon }}</div>
-                    <div class="label">Location</div>
+        <div class="row">
+            <!-- Location Details Card -->
+            <div class="col-md-6">
+                <div class="location-card">
+                    <h5>📍 Location Details</h5>
+                    
+                    {% if results.location.district %}
+                    <div class="location-detail">
+                        <span class="icon">🏘️</span>
+                        <div class="info">
+                            <div class="label">District / City</div>
+                            <div class="value">{{ results.location.district or results.location.city or 'N/A' }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if results.location.state %}
+                    <div class="location-detail">
+                        <span class="icon">🗺️</span>
+                        <div class="info">
+                            <div class="label">State</div>
+                            <div class="value">{{ results.location.state }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if results.location.country %}
+                    <div class="location-detail">
+                        <span class="icon">🇮🇳</span>
+                        <div class="info">
+                            <div class="label">Country</div>
+                            <div class="value">{{ results.location.country }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="coords-display">
+                        <strong>Coordinates:</strong> {{ results.location.lat }}°N, {{ results.location.lon }}°E
+                    </div>
+                    
+                    {% if results.location.estimated %}
+                    <span class="location-badge">📍 Location Estimated</span>
+                    {% else %}
+                    <span class="location-badge">✅ Location Verified</span>
+                    {% endif %}
+                    
+                    {% if results.location.full_address %}
+                    <div class="mt-2" style="font-size: 0.8rem; opacity: 0.9;">
+                        <strong>Full Address:</strong> {{ results.location.full_address }}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
-            {% if not results.weather.success %}
-                <div class="alert alert-warning mt-3 mb-0 py-2">
-                    ⚠️ {{ results.weather.error }}
+            
+            <!-- Weather Summary Card -->
+            <div class="col-md-6">
+                <div class="weather-card">
+                    <h5>🌤️ Weather Forecast (5-Day)</h5>
+                    <div class="row">
+                        <div class="col-6 weather-stat">
+                            <div class="value">{{ results.weather.avg_temp }}°C</div>
+                            <div class="label">Avg Temperature</div>
+                        </div>
+                        <div class="col-6 weather-stat">
+                            <div class="value" style="text-transform: capitalize;">{{ results.weather.rainfall_level }}</div>
+                            <div class="label">Rainfall Level</div>
+                        </div>
+                        <div class="col-6 weather-stat">
+                            <div class="value">{{ results.weather.total_rainfall }} mm</div>
+                            <div class="label">Expected Rainfall</div>
+                        </div>
+                        <div class="col-6 weather-stat">
+                            <div class="value">{{ results.season }}</div>
+                            <div class="label">Season</div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <span class="weather-source">
+                            {% if results.weather.success %}
+                                ✅ {{ results.weather.source }}
+                            {% else %}
+                                📍 {{ results.weather.source }}
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    {% if results.weather.error %}
+                    <div class="weather-warning">
+                        ⚠️ {{ results.weather.error }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if results.weather.note %}
+                    <div class="weather-warning">
+                        💡 {{ results.weather.note }}
+                    </div>
+                    {% endif %}
                 </div>
-            {% endif %}
+            </div>
         </div>
 
         <!-- Crop Recommendations -->
-        <h4 class="mb-3">🏆 Top Recommended Crops</h4>
+        <h4 class="mb-3 mt-2">
+            🏆 Top {{ results.recommendations|length }} Recommended Crops
+            <small class="text-muted" style="font-size: 0.7em;">
+                ({{ results.total_crops_analyzed }} crops analyzed for 
+                {% if results.location.district %}{{ results.location.district }}, {% endif %}
+                {{ results.location.state or 'your location' }})
+            </small>
+        </h4>
 
         {% if results.recommendations %}
             {% for crop in results.recommendations %}
@@ -150,7 +304,7 @@
                             {% if loop.index == 1 %}🥇 Best Choice
                             {% elif loop.index == 2 %}🥈 Runner Up
                             {% elif loop.index == 3 %}🥉 Good Option
-                            {% else %}#{{ loop.index }}
+                            {% else %}#{{ loop.index }} Recommended
                             {% endif %}
                         </span>
                     </div>
@@ -162,14 +316,20 @@
                                  style="width: {{ 100 - crop.risk_score }}%;"></div>
                         </div>
                         <strong>{{ crop.risk_score }}/100</strong>
+                        <small class="ms-2 text-muted">
+                            {% if crop.risk_score < 40 %}(Low Risk ✓)
+                            {% elif crop.risk_score < 70 %}(Medium)
+                            {% else %}(High Risk ⚠)
+                            {% endif %}
+                        </small>
                     </div>
 
                     <div class="crop-tags">
                         <span>🌡️ {{ crop.min_temp }}-{{ crop.max_temp }}°C</span>
                         <span>💧 {{ crop.rainfall_need }} rain</span>
                         <span>📅 {{ crop.growing_days }} days</span>
-                        {% if crop.drought_tolerant %}<span>🏜️ Drought Safe</span>{% endif %}
-                        {% if crop.flood_tolerant %}<span>🌊 Flood Safe</span>{% endif %}
+                        {% if crop.drought_tolerant %}<span style="background: #fff3e0;">🏜️ Drought Safe</span>{% endif %}
+                        {% if crop.flood_tolerant %}<span style="background: #e3f2fd;">🌊 Flood Safe</span>{% endif %}
                     </div>
 
                     <div class="explanation">
@@ -179,7 +339,12 @@
             {% endfor %}
         {% else %}
             <div class="alert alert-info">
-                No suitable crops found for current conditions. Try a different season.
+                <h5>😔 No suitable crops found</h5>
+                <p>No crops match the current weather conditions for {{ results.season }} season in 
+                    {% if results.location.district %}{{ results.location.district }}, {% endif %}
+                    {{ results.location.state or 'your location' }}.
+                </p>
+                <p>Try selecting a different season or check your coordinates.</p>
             </div>
         {% endif %}
 

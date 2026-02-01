@@ -25,6 +25,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 # OpenWeather API configuration
 OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY', '')
 OPENWEATHER_URL = "https://api.openweathermap.org/data/2.5/forecast"
+OPENWEATHER_GEO_URL = "https://api.openweathermap.org/geo/1.0/reverse"
 
 # Check if API key is configured
 if not OPENWEATHER_API_KEY or OPENWEATHER_API_KEY == 'YOUR_API_KEY_HERE':
@@ -89,6 +90,196 @@ def load_schemes_data():
     """Load schemes data from JSON file."""
     with open('schemes.json', 'r', encoding='utf-8') as f:
         return json.load(f)
+
+
+def get_location_details(lat, lon):
+    """
+    Get district, state, and country from coordinates using reverse geocoding.
+    Uses multiple APIs for better reliability.
+    """
+    location_info = {
+        'district': None,
+        'state': None,
+        'country': None,
+        'city': None,
+        'full_address': None,
+        'success': False
+    }
+    
+    # Method 1: Try OpenWeather Geocoding API (if API key available)
+    if OPENWEATHER_API_KEY and len(OPENWEATHER_API_KEY) > 20:
+        try:
+            params = {
+                'lat': lat,
+                'lon': lon,
+                'limit': 1,
+                'appid': OPENWEATHER_API_KEY
+            }
+            response = requests.get(OPENWEATHER_GEO_URL, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data and len(data) > 0:
+                    loc = data[0]
+                    location_info['city'] = loc.get('name', '')
+                    location_info['state'] = loc.get('state', '')
+                    location_info['country'] = loc.get('country', '')
+                    
+                    # For India, the 'name' often contains district/city name
+                    if location_info['state']:
+                        location_info['district'] = loc.get('name', '')
+                    
+                    location_info['success'] = True
+                    print(f"📍 OpenWeather Geocoding: {location_info['city']}, {location_info['state']}")
+        except Exception as e:
+            print(f"OpenWeather Geocoding error: {e}")
+    
+    # Method 2: Try Nominatim (OpenStreetMap) - Free, no API key needed
+    if not location_info['success']:
+        try:
+            nominatim_url = "https://nominatim.openstreetmap.org/reverse"
+            params = {
+                'lat': lat,
+                'lon': lon,
+                'format': 'json',
+                'addressdetails': 1,
+                'zoom': 10
+            }
+            headers = {
+                'User-Agent': 'SmartFarmerAssistant/1.0 (Educational Project)'
+            }
+            
+            response = requests.get(nominatim_url, params=params, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                address = data.get('address', {})
+                
+                # Extract location details
+                location_info['city'] = (
+                    address.get('city') or 
+                    address.get('town') or 
+                    address.get('village') or
+                    address.get('suburb') or
+                    address.get('municipality', '')
+                )
+                
+                location_info['district'] = (
+                    address.get('county') or 
+                    address.get('state_district') or
+                    address.get('district', '')
+                )
+                
+                location_info['state'] = address.get('state', '')
+                location_info['country'] = address.get('country', '')
+                location_info['full_address'] = data.get('display_name', '')
+                location_info['success'] = True
+                
+                print(f"📍 Nominatim: {location_info['district']}, {location_info['state']}")
+        except Exception as e:
+            print(f"Nominatim Geocoding error: {e}")
+    
+    # Method 3: Estimate based on coordinates for India (fallback)
+    if not location_info['success']:
+        location_info = estimate_location_from_coordinates(lat, lon)
+    
+    return location_info
+
+
+def estimate_location_from_coordinates(lat, lon):
+    """
+    Estimate state/region based on coordinates for India.
+    Fallback when geocoding APIs fail.
+    """
+    location_info = {
+        'district': None,
+        'state': None,
+        'country': 'India',
+        'city': None,
+        'full_address': None,
+        'success': False,
+        'estimated': True
+    }
+    
+    # Check if coordinates are within India (approximately)
+    if not (6 <= lat <= 38 and 68 <= lon <= 98):
+        location_info['country'] = 'Unknown'
+        location_info['state'] = 'Outside India'
+        return location_info
+    
+    # Estimate Indian state based on lat/lon (approximate boundaries)
+    # This is a simplified mapping - not precise
+    
+    if lat >= 28:  # Northern India
+        if lon < 76:
+            location_info['state'] = 'Punjab/Haryana'
+            location_info['district'] = 'Northern Region'
+        elif lon < 80:
+            location_info['state'] = 'Uttar Pradesh'
+            location_info['district'] = 'Western UP'
+        elif lon < 85:
+            location_info['state'] = 'Uttar Pradesh/Bihar'
+            location_info['district'] = 'Eastern UP/Bihar'
+        else:
+            location_info['state'] = 'Bihar/West Bengal'
+            location_info['district'] = 'Eastern Region'
+            
+    elif lat >= 23:  # Central India
+        if lon < 74:
+            location_info['state'] = 'Rajasthan/Gujarat'
+            location_info['district'] = 'Western Region'
+        elif lon < 78:
+            location_info['state'] = 'Madhya Pradesh'
+            location_info['district'] = 'Central MP'
+        elif lon < 82:
+            location_info['state'] = 'Madhya Pradesh/Chhattisgarh'
+            location_info['district'] = 'Eastern MP'
+        elif lon < 86:
+            location_info['state'] = 'Jharkhand/Odisha'
+            location_info['district'] = 'Eastern Region'
+        else:
+            location_info['state'] = 'West Bengal/Odisha'
+            location_info['district'] = 'Coastal East'
+            
+    elif lat >= 18:  # Western & Central Peninsular India
+        if lon < 74:
+            location_info['state'] = 'Maharashtra'
+            location_info['district'] = 'Western Maharashtra'
+        elif lon < 78:
+            location_info['state'] = 'Maharashtra/Telangana'
+            location_info['district'] = 'Vidarbha/Telangana'
+        elif lon < 82:
+            location_info['state'] = 'Telangana/Andhra Pradesh'
+            location_info['district'] = 'Telangana Region'
+        else:
+            location_info['state'] = 'Andhra Pradesh/Odisha'
+            location_info['district'] = 'Coastal Andhra'
+            
+    elif lat >= 12:  # Southern Peninsular India
+        if lon < 76:
+            location_info['state'] = 'Karnataka'
+            location_info['district'] = 'Karnataka Region'
+        elif lon < 78:
+            location_info['state'] = 'Karnataka/Tamil Nadu'
+            location_info['district'] = 'Southern Karnataka'
+        elif lon < 80:
+            location_info['state'] = 'Tamil Nadu'
+            location_info['district'] = 'Tamil Nadu Region'
+        else:
+            location_info['state'] = 'Tamil Nadu/Andhra Pradesh'
+            location_info['district'] = 'Coastal Region'
+            
+    else:  # Deep South
+        if lon < 77:
+            location_info['state'] = 'Kerala'
+            location_info['district'] = 'Kerala Region'
+        else:
+            location_info['state'] = 'Tamil Nadu'
+            location_info['district'] = 'Southern Tamil Nadu'
+    
+    print(f"📍 Estimated location: {location_info['district']}, {location_info['state']}")
+    return location_info
+
 
 def get_weather_forecast(lat, lon):
     """
@@ -306,6 +497,7 @@ def get_crop_explanation(crop_row, avg_temp, rainfall_level, risk_score):
 def recommend_crops(lat, lon, season):
     """Main recommendation logic combining weather, crop data, and ML model."""
     weather = get_weather_forecast(lat, lon)
+    location = get_location_details(lat, lon)  # Get location details
     crops_df = load_crops()
     crop_data = load_crop_data()
     
@@ -376,8 +568,17 @@ def recommend_crops(lat, lon, season):
     
     return {
         'weather': weather,
+        'location': {
+            'lat': lat, 
+            'lon': lon,
+            'district': location.get('district'),
+            'state': location.get('state'),
+            'city': location.get('city'),
+            'country': location.get('country'),
+            'full_address': location.get('full_address'),
+            'estimated': location.get('estimated', False)
+        },
         'season': season,
-        'location': {'lat': lat, 'lon': lon},
         'recommendations': top_recommendations,
         'total_crops_analyzed': len(suitable_crops)
     }
@@ -644,10 +845,12 @@ def api_status():
     """Check if OpenWeather API is working."""
     # Test with Delhi coordinates
     weather = get_weather_forecast(28.6139, 77.2090)
+    location = get_location_details(28.6139, 77.2090)
     return {
         'api_configured': bool(OPENWEATHER_API_KEY and len(OPENWEATHER_API_KEY) > 20),
         'api_working': weather.get('success', False),
         'weather_source': weather.get('source', 'Unknown'),
+        'location': location,
         'test_data': weather
     }
 
