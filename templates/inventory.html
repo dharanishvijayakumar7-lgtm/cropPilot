@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CropPilot - Farm Logbook</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        /* Navigation Bar */
+        .navbar {
+            background: #16213e;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .navbar .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #4ecca3;
+        }
+
+        .navbar .logo span {
+            color: #fff;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-links a {
+            color: #a0a0a0;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            background: #4ecca3;
+            color: #16213e;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 80px 20px 40px;
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-header h1 {
+            color: #4ecca3;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .page-header p {
+            color: #666;
+        }
+
+        /* Flash Messages */
+        .flash-message {
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+
+        .flash-message.success {
+            background: #4ecca320;
+            border: 1px solid #4ecca3;
+            color: #4ecca3;
+        }
+
+        .flash-message.danger {
+            background: #ff6b6b20;
+            border: 1px solid #ff6b6b;
+            color: #ff6b6b;
+        }
+
+        /* Two Column Layout */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 30px;
+        }
+
+        /* Form Card */
+        .form-card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 25px;
+            height: fit-content;
+            position: sticky;
+            top: 80px;
+        }
+
+        .form-card h2 {
+            color: #fff;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #a0a0a0;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #2d3a5a;
+            border-radius: 8px;
+            background: #1a1a2e;
+            color: #fff;
+            font-size: 0.95rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #4ecca3;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #4ecca3 0%, #38b58b 100%);
+            color: #16213e;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(78, 204, 163, 0.3);
+        }
+
+        .hint {
+            font-size: 0.75rem;
+            color: #555;
+            margin-top: 4px;
+        }
+
+        /* Table Card */
+        .table-card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 25px;
+            overflow: hidden;
+        }
+
+        .table-card h2 {
+            color: #fff;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #2d3a5a;
+        }
+
+        th {
+            background: #1a1a2e;
+            color: #4ecca3;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        td {
+            color: #ccc;
+        }
+
+        tr:hover {
+            background: #1a1a2e50;
+        }
+
+        .crop-name {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .money-spent {
+            color: #ff6b6b;
+        }
+
+        .money-earned {
+            color: #4ecca3;
+        }
+
+        .profit-positive {
+            color: #4ecca3;
+            font-weight: 600;
+        }
+
+        .profit-negative {
+            color: #ff6b6b;
+            font-weight: 600;
+        }
+
+        .notes-cell {
+            max-width: 150px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .delete-btn {
+            background: transparent;
+            border: 1px solid #ff6b6b;
+            color: #ff6b6b;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .delete-btn:hover {
+            background: #ff6b6b;
+            color: #fff;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: #666;
+        }
+
+        .empty-state .icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        /* Summary Cards */
+        .summary-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .summary-card .value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #4ecca3;
+        }
+
+        .summary-card .label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 900px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-card {
+                position: static;
+            }
+
+            .summary-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links a {
+                padding: 6px 10px;
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 8px 10px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="logo">🌾 Crop<span>Pilot</span></div>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('risk_map') }}">Risk Map</a>
+            <a href="{{ url_for('inventory') }}" class="active">Farm Logbook</a>
+            <a href="{{ url_for('disaster_form') }}">Disaster Help</a>
+            <a href="{{ url_for('logout') }}" style="color: #ff6b6b;">Logout</a>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <div class="page-header">
+            <h1>📒 Farm Logbook</h1>
+            <p>Track your farming history, expenses, and earnings</p>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="content-grid">
+            <!-- Add Log Form -->
+            <div class="form-card">
+                <h2>➕ Add New Entry</h2>
+                <form action="/inventory/add" method="POST">
+                    <div class="form-group">
+                        <label for="crop_name">Crop Name *</label>
+                        <input type="text" id="crop_name" name="crop_name" placeholder="e.g., Wheat, Rice, Cotton" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sowing_date">Sowing Date *</label>
+                        <input type="date" id="sowing_date" name="sowing_date" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="duration_days">Duration (days)</label>
+                            <input type="number" id="duration_days" name="duration_days" placeholder="e.g., 120" min="1">
+                            <p class="hint">Auto-calculates harvest date</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="expected_harvest_date">Or Harvest Date</label>
+                            <input type="date" id="expected_harvest_date" name="expected_harvest_date">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="money_spent">Money Spent (₹)</label>
+                            <input type="number" id="money_spent" name="money_spent" placeholder="0" min="0" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label for="money_earned">Money Earned (₹)</label>
+                            <input type="number" id="money_earned" name="money_earned" placeholder="0" min="0" step="0.01">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notes">Notes</label>
+                        <textarea id="notes" name="notes" placeholder="Any observations, issues, or reminders..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn">💾 Save Entry</button>
+                </form>
+            </div>
+
+            <!-- Logs Table -->
+            <div class="table-card">
+                <h2>📊 Your Farm Records</h2>
+
+                {% if logs %}
+                <!-- Summary Cards -->
+                <div class="summary-row">
+                    <div class="summary-card">
+                        <div class="value">{{ logs|length }}</div>
+                        <div class="label">Total Records</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="value">₹{{ "%.0f"|format(logs|sum(attribute='money_spent')) }}</div>
+                        <div class="label">Total Spent</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="value">₹{{ "%.0f"|format(logs|sum(attribute='money_earned')) }}</div>
+                        <div class="label">Total Earned</div>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Crop</th>
+                                <th>Sowing Date</th>
+                                <th>Harvest Date</th>
+                                <th>Spent (₹)</th>
+                                <th>Earned (₹)</th>
+                                <th>Profit (₹)</th>
+                                <th>Notes</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td class="crop-name">{{ log['crop_name'] }}</td>
+                                <td>{{ log['sowing_date'] }}</td>
+                                <td>{{ log['expected_harvest_date'] or '-' }}</td>
+                                <td class="money-spent">{{ "%.0f"|format(log['money_spent']) }}</td>
+                                <td class="money-earned">{{ "%.0f"|format(log['money_earned']) }}</td>
+                                <td class="{% if log['money_earned'] - log['money_spent'] >= 0 %}profit-positive{% else %}profit-negative{% endif %}">
+                                    {{ "%.0f"|format(log['money_earned'] - log['money_spent']) }}
+                                </td>
+                                <td class="notes-cell" title="{{ log['notes'] or '' }}">{{ log['notes'] or '-' }}</td>
+                                <td>
+                                    <form action="/inventory/delete/{{ log['id'] }}" method="POST" style="display:inline;" onsubmit="return confirm('Delete this entry?');">
+                                        <button type="submit" class="delete-btn">🗑️</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <div class="icon">📝</div>
+                    <p>No farm records yet.</p>
+                    <p>Add your first crop entry using the form!</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-calculate harvest date when duration is entered
+        document.getElementById('duration_days').addEventListener('input', function() {
+            const sowingDate = document.getElementById('sowing_date').value;
+            const duration = parseInt(this.value);
+            
+            if (sowingDate && duration > 0) {
+                const sowing = new Date(sowingDate);
+                sowing.setDate(sowing.getDate() + duration);
+                document.getElementById('expected_harvest_date').value = sowing.toISOString().split('T')[0];
+            }
+        });
+
+        // Also update when sowing date changes
+        document.getElementById('sowing_date').addEventListener('input', function() {
+            const duration = parseInt(document.getElementById('duration_days').value);
+            
+            if (this.value && duration > 0) {
+                const sowing = new Date(this.value);
+                sowing.setDate(sowing.getDate() + duration);
+                document.getElementById('expected_harvest_date').value = sowing.toISOString().split('T')[0];
+            }
+        });
+    </script>
+</body>
+</html>

@@ -89,6 +89,9 @@
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('dashboard') }}">🌾✈️ CropPilot</a>
             <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('risk_map') }}">Risk Map</a>
+                <a class="nav-link" href="{{ url_for('inventory') }}">Farm Logbook</a>
+                <a class="nav-link" href="{{ url_for('disaster_form') }}">Disaster Help</a>
                 <a class="nav-link" href="{{ url_for('logout') }}">Logout 🚪</a>
             </div>
         </div>
@@ -117,30 +120,48 @@
         {% endwith %}
 
         <div class="row g-4">
-            <!-- Crop Advisory Card -->
-            <div class="col-md-6">
+            <!-- Village Risk Map Card -->
+            <div class="col-md-4">
                 <div class="feature-card">
-                    <div class="feature-icon">🌱🔍</div>
-                    <h3>Crop Advisory</h3>
-                    <p>Get AI-powered crop recommendations based on your location, weather forecast, and season. Find the best crops to grow with lowest risk scores.</p>
+                    <div class="feature-icon">🗺️🌡️</div>
+                    <h3>Village Risk Map</h3>
+                    <p>Check weather-based risk assessment for any village. Get drought, flood, and moisture warnings based on live weather forecasts.</p>
                     <ul class="list-unstyled text-start mb-4" style="color: #666; font-size: 0.9rem;">
-                        <li>✓ Live weather integration</li>
-                        <li>✓ Season-wise recommendations</li>
-                        <li>✓ Risk score analysis</li>
-                        <li>✓ Drought/Flood tolerance info</li>
+                        <li>✓ Interactive map</li>
+                        <li>✓ 5-day weather forecast</li>
+                        <li>✓ Drought/Flood risk alerts</li>
+                        <li>✓ Click-to-analyze locations</li>
                     </ul>
-                    <a href="{{ url_for('crop_form') }}" class="btn-feature">
-                        Get Crop Advice →
+                    <a href="{{ url_for('risk_map') }}" class="btn-feature">
+                        Open Risk Map →
+                    </a>
+                </div>
+            </div>
+
+            <!-- Farm Logbook Card -->
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">📒💰</div>
+                    <h3>Farm Logbook</h3>
+                    <p>Track your farming activities, expenses, and earnings. Keep records of all your crops with sowing dates and harvest schedules.</p>
+                    <ul class="list-unstyled text-start mb-4" style="color: #666; font-size: 0.9rem;">
+                        <li>✓ Crop-wise tracking</li>
+                        <li>✓ Expense & income records</li>
+                        <li>✓ Profit/Loss calculation</li>
+                        <li>✓ Harvest date reminders</li>
+                    </ul>
+                    <a href="{{ url_for('inventory') }}" class="btn-feature" style="background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);">
+                        Open Logbook →
                     </a>
                 </div>
             </div>
 
             <!-- Disaster Scheme Card -->
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="feature-card">
                     <div class="feature-icon">🆘📋</div>
                     <h3>Disaster Help & Schemes</h3>
-                    <p>Affected by flood, drought, or other disasters? Find government schemes you're eligible for and get step-by-step application guidance.</p>
+                    <p>Affected by flood, drought, or other disasters? Find government schemes you're eligible for and get step-by-step guidance.</p>
                     <ul class="list-unstyled text-start mb-4" style="color: #666; font-size: 0.9rem;">
                         <li>✓ PMFBY Insurance claims</li>
                         <li>✓ State disaster relief</li>

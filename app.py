@@ -1,19 +1,17 @@
 """
-Smart Farmer Assistant - Crop Advisor & Disaster Help Navigator
-A Flask web application with user authentication, crop recommendations,
-and disaster scheme finder.
+CropPilot - Farmer Decision Support System
+A Flask web application with login, weather risk map, farm logbook, and disaster scheme navigator.
 """
 
 import os
 import json
 import sqlite3
 import requests
-import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from datetime import datetime, timedelta
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 from functools import wraps
-from model import load_model, predict_risk, train_model
 
 # Load environment variables
 load_dotenv()
@@ -23,9 +21,9 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 
 # OpenWeather API configuration
-OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY', '')
-OPENWEATHER_URL = "https://api.openweathermap.org/data/2.5/forecast"
-OPENWEATHER_GEO_URL = "https://api.openweathermap.org/geo/1.0/reverse"
+# Get your free API key from: https://openweathermap.org/api
+OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY', 'YOUR_API_KEY_HERE')
+OPENWEATHER_FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 
 # Check if API key is configured
 if not OPENWEATHER_API_KEY or OPENWEATHER_API_KEY == 'YOUR_API_KEY_HERE':
@@ -36,20 +34,20 @@ if not OPENWEATHER_API_KEY or OPENWEATHER_API_KEY == 'YOUR_API_KEY_HERE':
     print("   OPENWEATHER_API_KEY=your_actual_api_key")
     print("=" * 60)
 
-# Load ML model and encoders
-model, rainfall_encoder, season_encoder = load_model()
+# ==================== DATABASE SETUP ====================
 
-# Database helper functions
 def get_db_connection():
     """Get SQLite database connection."""
-    conn = sqlite3.connect('farmers.db')
+    conn = sqlite3.connect('croppilot.db')
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    """Initialize the database."""
+    """Initialize the database with required tables."""
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    # Users table for authentication
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,17 +55,45 @@ def init_db():
             phone TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             state TEXT,
-            district TEXT
+            district TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    
+    # Farm logs table for Farmer Management System (linked to user)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS farm_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            crop_name TEXT NOT NULL,
+            sowing_date DATE NOT NULL,
+            expected_harvest_date DATE,
+            money_spent REAL DEFAULT 0,
+            money_earned REAL DEFAULT 0,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    """)
+    
+    # Migration: Add user_id column if it doesn't exist (for old databases)
+    try:
+        cursor.execute("ALTER TABLE farm_logs ADD COLUMN user_id INTEGER")
+        print("✅ Migration: Added user_id column to farm_logs table")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    
     conn.commit()
     conn.close()
+    print("✅ Database initialized successfully")
 
 # Initialize database on startup
 init_db()
 
-# Login required decorator
+# ==================== LOGIN REQUIRED DECORATOR ====================
+
 def login_required(f):
+    """Decorator to require login for protected routes."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
@@ -76,221 +102,74 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Load data files
-def load_crops():
-    """Load crop data from CSV file."""
-    return pd.read_csv('crops.csv')
-
-def load_crop_data():
-    """Load crop data from JSON file."""
-    with open('crop_data.json', 'r', encoding='utf-8') as f:
-        return json.load(f)
+# ==================== HELPER FUNCTIONS ====================
 
 def load_schemes_data():
     """Load schemes data from JSON file."""
-    with open('schemes.json', 'r', encoding='utf-8') as f:
-        return json.load(f)
+    try:
+        with open('schemes.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {"schemes": [], "disaster_types": [], "crops": [], "states": []}
 
+def find_eligible_schemes(crop, disaster_type, land_size, has_insurance):
+    """Find eligible government schemes based on farmer inputs."""
+    schemes_data = load_schemes_data()
+    eligible_schemes = []
+    
+    for scheme in schemes_data.get('schemes', []):
+        # Check disaster type match
+        if disaster_type not in scheme.get('disaster_types', []):
+            continue
+        
+        # Check crop eligibility
+        eligible_crops = scheme.get('eligible_crops', [])
+        if crop not in eligible_crops and 'All Crops' not in eligible_crops:
+            continue
+        
+        # Check land size
+        min_land = scheme.get('min_land_size', 0)
+        max_land = scheme.get('max_land_size', 999)
+        if land_size < min_land or land_size > max_land:
+            continue
+        
+        # Check insurance requirement
+        if scheme.get('requires_insurance', False) and not has_insurance:
+            continue
+        
+        # Build eligibility reasons
+        reasons = []
+        reasons.append(f"Your crop ({crop}) is covered under this scheme")
+        reasons.append(f"Disaster type ({disaster_type.replace('_', ' ').title()}) is eligible")
+        reasons.append(f"Your land size ({land_size} hectares) meets the criteria")
+        if has_insurance and scheme.get('requires_insurance'):
+            reasons.append("You have crop insurance which qualifies for claims")
+        if land_size <= 2:
+            reasons.append("Small/marginal farmer benefits may apply")
+        
+        eligible_schemes.append({
+            'id': scheme.get('id'),
+            'name': scheme.get('name'),
+            'description': scheme.get('description'),
+            'max_amount': scheme.get('max_amount', 'Varies'),
+            'documents': scheme.get('documents_required', []),
+            'steps': scheme.get('application_steps', []),
+            'helpline': scheme.get('helpline', 'N/A'),
+            'website': scheme.get('website', '#'),
+            'reasons': reasons
+        })
+    
+    return eligible_schemes
 
-def get_location_details(lat, lon):
-    """
-    Get district, state, and country from coordinates using reverse geocoding.
-    Uses multiple APIs for better reliability.
-    """
-    location_info = {
-        'district': None,
-        'state': None,
-        'country': None,
-        'city': None,
-        'full_address': None,
-        'success': False
-    }
-    
-    # Method 1: Try OpenWeather Geocoding API (if API key available)
-    if OPENWEATHER_API_KEY and len(OPENWEATHER_API_KEY) > 20:
-        try:
-            params = {
-                'lat': lat,
-                'lon': lon,
-                'limit': 1,
-                'appid': OPENWEATHER_API_KEY
-            }
-            response = requests.get(OPENWEATHER_GEO_URL, params=params, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data and len(data) > 0:
-                    loc = data[0]
-                    location_info['city'] = loc.get('name', '')
-                    location_info['state'] = loc.get('state', '')
-                    location_info['country'] = loc.get('country', '')
-                    
-                    # For India, the 'name' often contains district/city name
-                    if location_info['state']:
-                        location_info['district'] = loc.get('name', '')
-                    
-                    location_info['success'] = True
-                    print(f"📍 OpenWeather Geocoding: {location_info['city']}, {location_info['state']}")
-        except Exception as e:
-            print(f"OpenWeather Geocoding error: {e}")
-    
-    # Method 2: Try Nominatim (OpenStreetMap) - Free, no API key needed
-    if not location_info['success']:
-        try:
-            nominatim_url = "https://nominatim.openstreetmap.org/reverse"
-            params = {
-                'lat': lat,
-                'lon': lon,
-                'format': 'json',
-                'addressdetails': 1,
-                'zoom': 10
-            }
-            headers = {
-                'User-Agent': 'SmartFarmerAssistant/1.0 (Educational Project)'
-            }
-            
-            response = requests.get(nominatim_url, params=params, headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                address = data.get('address', {})
-                
-                # Extract location details
-                location_info['city'] = (
-                    address.get('city') or 
-                    address.get('town') or 
-                    address.get('village') or
-                    address.get('suburb') or
-                    address.get('municipality', '')
-                )
-                
-                location_info['district'] = (
-                    address.get('county') or 
-                    address.get('state_district') or
-                    address.get('district', '')
-                )
-                
-                location_info['state'] = address.get('state', '')
-                location_info['country'] = address.get('country', '')
-                location_info['full_address'] = data.get('display_name', '')
-                location_info['success'] = True
-                
-                print(f"📍 Nominatim: {location_info['district']}, {location_info['state']}")
-        except Exception as e:
-            print(f"Nominatim Geocoding error: {e}")
-    
-    # Method 3: Estimate based on coordinates for India (fallback)
-    if not location_info['success']:
-        location_info = estimate_location_from_coordinates(lat, lon)
-    
-    return location_info
+# ==================== WEATHER RISK ANALYSIS ====================
 
-
-def estimate_location_from_coordinates(lat, lon):
-    """
-    Estimate state/region based on coordinates for India.
-    Fallback when geocoding APIs fail.
-    """
-    location_info = {
-        'district': None,
-        'state': None,
-        'country': 'India',
-        'city': None,
-        'full_address': None,
-        'success': False,
-        'estimated': True
-    }
-    
-    # Check if coordinates are within India (approximately)
-    if not (6 <= lat <= 38 and 68 <= lon <= 98):
-        location_info['country'] = 'Unknown'
-        location_info['state'] = 'Outside India'
-        return location_info
-    
-    # Estimate Indian state based on lat/lon (approximate boundaries)
-    # This is a simplified mapping - not precise
-    
-    if lat >= 28:  # Northern India
-        if lon < 76:
-            location_info['state'] = 'Punjab/Haryana'
-            location_info['district'] = 'Northern Region'
-        elif lon < 80:
-            location_info['state'] = 'Uttar Pradesh'
-            location_info['district'] = 'Western UP'
-        elif lon < 85:
-            location_info['state'] = 'Uttar Pradesh/Bihar'
-            location_info['district'] = 'Eastern UP/Bihar'
-        else:
-            location_info['state'] = 'Bihar/West Bengal'
-            location_info['district'] = 'Eastern Region'
-            
-    elif lat >= 23:  # Central India
-        if lon < 74:
-            location_info['state'] = 'Rajasthan/Gujarat'
-            location_info['district'] = 'Western Region'
-        elif lon < 78:
-            location_info['state'] = 'Madhya Pradesh'
-            location_info['district'] = 'Central MP'
-        elif lon < 82:
-            location_info['state'] = 'Madhya Pradesh/Chhattisgarh'
-            location_info['district'] = 'Eastern MP'
-        elif lon < 86:
-            location_info['state'] = 'Jharkhand/Odisha'
-            location_info['district'] = 'Eastern Region'
-        else:
-            location_info['state'] = 'West Bengal/Odisha'
-            location_info['district'] = 'Coastal East'
-            
-    elif lat >= 18:  # Western & Central Peninsular India
-        if lon < 74:
-            location_info['state'] = 'Maharashtra'
-            location_info['district'] = 'Western Maharashtra'
-        elif lon < 78:
-            location_info['state'] = 'Maharashtra/Telangana'
-            location_info['district'] = 'Vidarbha/Telangana'
-        elif lon < 82:
-            location_info['state'] = 'Telangana/Andhra Pradesh'
-            location_info['district'] = 'Telangana Region'
-        else:
-            location_info['state'] = 'Andhra Pradesh/Odisha'
-            location_info['district'] = 'Coastal Andhra'
-            
-    elif lat >= 12:  # Southern Peninsular India
-        if lon < 76:
-            location_info['state'] = 'Karnataka'
-            location_info['district'] = 'Karnataka Region'
-        elif lon < 78:
-            location_info['state'] = 'Karnataka/Tamil Nadu'
-            location_info['district'] = 'Southern Karnataka'
-        elif lon < 80:
-            location_info['state'] = 'Tamil Nadu'
-            location_info['district'] = 'Tamil Nadu Region'
-        else:
-            location_info['state'] = 'Tamil Nadu/Andhra Pradesh'
-            location_info['district'] = 'Coastal Region'
-            
-    else:  # Deep South
-        if lon < 77:
-            location_info['state'] = 'Kerala'
-            location_info['district'] = 'Kerala Region'
-        else:
-            location_info['state'] = 'Tamil Nadu'
-            location_info['district'] = 'Southern Tamil Nadu'
-    
-    print(f"📍 Estimated location: {location_info['district']}, {location_info['state']}")
-    return location_info
-
-
-def get_weather_forecast(lat, lon):
-    """
-    Fetch 5-day weather forecast from OpenWeather API.
-    Falls back to location-based estimates if API fails.
-    """
-    
-    # Check if API key is valid
+def get_weather_forecast_data(lat, lon):
+    """Fetch weather forecast from OpenWeather API."""
     if not OPENWEATHER_API_KEY or OPENWEATHER_API_KEY == 'YOUR_API_KEY_HERE' or len(OPENWEATHER_API_KEY) < 20:
-        print("⚠️ No valid API key, using location-based weather estimation")
-        return estimate_weather_from_location(lat, lon)
+        return {
+            'success': False,
+            'error': 'API key not configured. Please add OPENWEATHER_API_KEY to .env file.'
+        }
     
     params = {
         'lat': lat,
@@ -300,380 +179,201 @@ def get_weather_forecast(lat, lon):
     }
     
     try:
-        print(f"🌤️ Fetching weather for coordinates: ({lat}, {lon})")
-        response = requests.get(OPENWEATHER_URL, params=params, timeout=15)
+        response = requests.get(OPENWEATHER_FORECAST_URL, params=params, timeout=15)
         
-        # Check for API errors
         if response.status_code == 401:
-            print("❌ API Key invalid or not activated yet (takes ~10 mins after signup)")
-            return estimate_weather_from_location(lat, lon, 
-                error="API key invalid. Using estimated weather based on location.")
+            return {'success': False, 'error': 'Invalid API key. Please check your OpenWeather API key.'}
         
         if response.status_code == 429:
-            print("❌ API rate limit exceeded")
-            return estimate_weather_from_location(lat, lon,
-                error="Weather API rate limit. Using estimated weather.")
+            return {'success': False, 'error': 'API rate limit exceeded. Please try again later.'}
         
         response.raise_for_status()
         data = response.json()
         
-        # Parse weather data
-        temps = []
+        # Process forecast data
         total_rainfall = 0
         humidity_values = []
+        temp_values = []
         
         for item in data.get('list', []):
-            temps.append(item['main']['temp'])
+            temp_values.append(item['main']['temp'])
             humidity_values.append(item['main'].get('humidity', 50))
             if 'rain' in item:
                 total_rainfall += item['rain'].get('3h', 0)
         
-        avg_temp = sum(temps) / len(temps) if temps else 25
         avg_humidity = sum(humidity_values) / len(humidity_values) if humidity_values else 50
-        
-        # Determine rainfall level
-        if total_rainfall < 10:
-            rainfall_level = 'low'
-        elif total_rainfall < 50:
-            rainfall_level = 'medium'
-        else:
-            rainfall_level = 'high'
-        
-        # Get city name if available
-        city_name = data.get('city', {}).get('name', 'Unknown')
-        
-        print(f"✅ Weather fetched successfully for {city_name}")
-        print(f"   Temperature: {avg_temp:.1f}°C, Rainfall: {total_rainfall:.1f}mm ({rainfall_level})")
+        avg_temp = sum(temp_values) / len(temp_values) if temp_values else 25
+        city_name = data.get('city', {}).get('name', 'Unknown Location')
         
         return {
-            'avg_temp': round(avg_temp, 1),
-            'total_rainfall': round(total_rainfall, 1),
-            'rainfall_level': rainfall_level,
-            'humidity': round(avg_humidity, 1),
-            'city': city_name,
             'success': True,
-            'source': 'OpenWeather API'
+            'total_rainfall': round(total_rainfall, 2),
+            'avg_humidity': round(avg_humidity, 1),
+            'avg_temp': round(avg_temp, 1),
+            'city': city_name,
+            'forecast_days': 5
         }
         
     except requests.exceptions.Timeout:
-        print("❌ Weather API timeout")
-        return estimate_weather_from_location(lat, lon,
-            error="Weather API timeout. Using estimated weather.")
-    
+        return {'success': False, 'error': 'Weather API timeout. Please try again.'}
     except requests.exceptions.ConnectionError:
-        print("❌ No internet connection")
-        return estimate_weather_from_location(lat, lon,
-            error="No internet connection. Using estimated weather.")
-    
-    except requests.RequestException as e:
-        print(f"❌ Weather API error: {e}")
-        return estimate_weather_from_location(lat, lon,
-            error=f"Weather API error. Using estimated weather.")
-    
+        return {'success': False, 'error': 'No internet connection.'}
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
-        return estimate_weather_from_location(lat, lon,
-            error="Unexpected error. Using estimated weather.")
+        return {'success': False, 'error': f'Error fetching weather: {str(e)}'}
 
-
-def estimate_weather_from_location(lat, lon, error=None):
-    """
-    Estimate weather based on latitude and current month.
-    This is a fallback when API is unavailable.
-    """
-    import datetime
+def analyze_village_risk(lat, lon):
+    """Analyze weather data and determine village risk level."""
+    weather = get_weather_forecast_data(lat, lon)
     
-    current_month = datetime.datetime.now().month
+    if not weather['success']:
+        return {'success': False, 'error': weather.get('error', 'Failed to fetch weather data')}
     
-    # Estimate temperature based on latitude and season
-    # India lies between 8°N to 37°N latitude
+    # Get detailed location info using reverse geocoding (Nominatim - free API)
+    location_info = get_location_details(lat, lon)
     
-    # Base temperature varies with latitude (closer to equator = warmer)
-    if lat < 15:  # South India (Kerala, Tamil Nadu, Karnataka)
-        base_temp = 28
-    elif lat < 23:  # Central India (Maharashtra, MP, Telangana)
-        base_temp = 26
-    elif lat < 28:  # North Central (UP, Bihar, Rajasthan)
-        base_temp = 24
-    else:  # North India (Punjab, HP, J&K)
-        base_temp = 20
+    total_rainfall = weather['total_rainfall']
+    avg_humidity = weather['avg_humidity']
+    avg_temp = weather['avg_temp']
+    estimated_10day_rainfall = total_rainfall * 2
     
-    # Adjust for season (Northern Hemisphere)
-    if current_month in [12, 1, 2]:  # Winter
-        temp_adjustment = -8
-        base_rainfall = 'low'
-    elif current_month in [3, 4, 5]:  # Summer
-        temp_adjustment = 6
-        base_rainfall = 'low'
-    elif current_month in [6, 7, 8, 9]:  # Monsoon
-        temp_adjustment = 2
-        base_rainfall = 'high'
-    else:  # Post-monsoon (Oct, Nov)
-        temp_adjustment = -2
-        base_rainfall = 'medium'
-    
-    estimated_temp = base_temp + temp_adjustment
-    
-    # Adjust rainfall for coastal areas (closer to ocean)
-    # If longitude suggests coastal area, increase rainfall
-    if lon < 75 or lon > 85:  # Coastal regions
-        if base_rainfall == 'low':
-            base_rainfall = 'medium'
-    
-    # Estimate rainfall amounts
-    rainfall_amounts = {'low': 5, 'medium': 30, 'high': 80}
-    
-    # Determine region name
-    if lat < 15:
-        region = "South India"
-    elif lat < 23:
-        region = "Central India"
-    elif lat < 28:
-        region = "North-Central India"
+    if estimated_10day_rainfall < 10:
+        risk_level = 'drought'
+        risk_color = '#e74c3c'
+        risk_title = 'High Drought Risk'
+        risk_message = f"This village is expected to receive very low rainfall (estimated {estimated_10day_rainfall:.1f}mm in next 10 days). High drought risk. Consider water conservation measures and drought-resistant crops."
+    elif estimated_10day_rainfall < 50 and avg_humidity < 70:
+        risk_level = 'moderate'
+        risk_color = '#f39c12'
+        risk_title = 'Moderate Conditions'
+        risk_message = f"This village has moderate weather conditions. Expected rainfall: {estimated_10day_rainfall:.1f}mm. Humidity: {avg_humidity:.1f}%. Good conditions for most crops."
+    elif estimated_10day_rainfall >= 50 or avg_humidity >= 80:
+        risk_level = 'excess_moisture'
+        risk_color = '#3498db'
+        risk_title = 'Excess Moisture Risk'
+        risk_message = f"This village may experience excess moisture. Expected rainfall: {estimated_10day_rainfall:.1f}mm. Humidity: {avg_humidity:.1f}%. Risk of flooding or pest/fungal issues. Ensure proper drainage."
     else:
-        region = "North India"
-    
-    print(f"📍 Estimated weather for {region} (lat: {lat:.2f})")
-    print(f"   Estimated temp: {estimated_temp}°C, Rainfall: {base_rainfall}")
-    
-    result = {
-        'avg_temp': round(estimated_temp, 1),
-        'total_rainfall': rainfall_amounts[base_rainfall],
-        'rainfall_level': base_rainfall,
-        'humidity': 60,
-        'city': region,
-        'success': False,
-        'source': 'Location-based estimate',
-        'note': 'Weather estimated based on your location and current season.'
-    }
-    
-    if error:
-        result['error'] = error
-    
-    return result
-
-
-def filter_crops_by_conditions(crops_df, avg_temp, rainfall_level, season):
-    """Filter crops based on weather and season conditions."""
-    season_filtered = crops_df[crops_df['season'] == season].copy()
-    
-    temp_filtered = season_filtered[
-        (season_filtered['min_temp'] <= avg_temp + 5) & 
-        (season_filtered['max_temp'] >= avg_temp - 5)
-    ].copy()
-    
-    if temp_filtered.empty:
-        return season_filtered
-    
-    return temp_filtered
-
-def get_crop_explanation(crop_row, avg_temp, rainfall_level, risk_score):
-    """Generate explanation for why a crop is recommended."""
-    explanations = []
-    
-    if crop_row['min_temp'] <= avg_temp <= crop_row['max_temp']:
-        explanations.append(f"Temperature ({avg_temp}°C) is within optimal range ({crop_row['min_temp']}-{crop_row['max_temp']}°C)")
-    else:
-        explanations.append(f"Temperature is close to suitable range ({crop_row['min_temp']}-{crop_row['max_temp']}°C)")
-    
-    if crop_row['rainfall_need'] == rainfall_level:
-        explanations.append(f"Rainfall level ({rainfall_level}) matches crop requirement")
-    
-    if crop_row['drought_tolerant'] == 1 and rainfall_level == 'low':
-        explanations.append("This crop is drought-tolerant, suitable for low rainfall")
-    
-    if crop_row['flood_tolerant'] == 1 and rainfall_level == 'high':
-        explanations.append("This crop is flood-tolerant, can handle high rainfall")
-    
-    if risk_score < 30:
-        explanations.append("Low risk score indicates excellent growing conditions")
-    elif risk_score < 60:
-        explanations.append("Moderate risk score - good growing conditions expected")
-    else:
-        explanations.append("Higher risk score - monitor conditions carefully")
-    
-    return ". ".join(explanations) + "."
-
-def recommend_crops(lat, lon, season):
-    """Main recommendation logic combining weather, crop data, and ML model."""
-    weather = get_weather_forecast(lat, lon)
-    location = get_location_details(lat, lon)  # Get location details
-    crops_df = load_crops()
-    crop_data = load_crop_data()
-    
-    suitable_crops = filter_crops_by_conditions(
-        crops_df, 
-        weather['avg_temp'], 
-        weather['rainfall_level'], 
-        season
-    )
-    
-    recommendations = []
-    
-    for _, crop in suitable_crops.iterrows():
-        crop_temp = (crop['min_temp'] + crop['max_temp']) / 2
-        temp_diff = abs(weather['avg_temp'] - crop_temp)
-        
-        base_risk = predict_risk(
-            model, 
-            rainfall_encoder, 
-            season_encoder,
-            weather['avg_temp'], 
-            weather['rainfall_level'], 
-            season
-        )
-        
-        adjusted_risk = base_risk
-        
-        if weather['avg_temp'] < crop['min_temp'] or weather['avg_temp'] > crop['max_temp']:
-            adjusted_risk += min(temp_diff * 2, 20)
-        
-        if weather['rainfall_level'] == 'low' and crop['drought_tolerant'] == 1:
-            adjusted_risk -= 10
-        elif weather['rainfall_level'] == 'high' and crop['flood_tolerant'] == 1:
-            adjusted_risk -= 10
-        elif weather['rainfall_level'] != crop['rainfall_need']:
-            adjusted_risk += 10
-        
-        adjusted_risk = max(0, min(100, adjusted_risk))
-        
-        explanation = get_crop_explanation(
-            crop, 
-            weather['avg_temp'], 
-            weather['rainfall_level'], 
-            adjusted_risk
-        )
-        
-        # Get growing days from JSON data
-        growing_days = 90  # default
-        for crop_info in crop_data.get('crops', []):
-            if crop_info['name'] == crop['crop']:
-                growing_days = crop_info.get('growing_days', 90)
-                break
-        
-        recommendations.append({
-            'name': crop['crop'],
-            'risk_score': int(adjusted_risk),
-            'min_temp': crop['min_temp'],
-            'max_temp': crop['max_temp'],
-            'rainfall_need': crop['rainfall_need'],
-            'drought_tolerant': bool(crop['drought_tolerant']),
-            'flood_tolerant': bool(crop['flood_tolerant']),
-            'growing_days': growing_days,
-            'explanation': explanation
-        })
-    
-    recommendations.sort(key=lambda x: x['risk_score'])
-    top_recommendations = recommendations[:5]  # Return top 5 instead of 3
+        risk_level = 'moderate'
+        risk_color = '#f39c12'
+        risk_title = 'Moderate Conditions'
+        risk_message = f"Expected rainfall: {estimated_10day_rainfall:.1f}mm. Humidity: {avg_humidity:.1f}%. Normal conditions expected."
     
     return {
-        'weather': weather,
-        'location': {
-            'lat': lat, 
-            'lon': lon,
-            'district': location.get('district'),
-            'state': location.get('state'),
-            'city': location.get('city'),
-            'country': location.get('country'),
-            'full_address': location.get('full_address'),
-            'estimated': location.get('estimated', False)
-        },
-        'season': season,
-        'recommendations': top_recommendations,
-        'total_crops_analyzed': len(suitable_crops)
+        'success': True,
+        'lat': lat,
+        'lon': lon,
+        'city': weather['city'],
+        'location': location_info,
+        'risk_level': risk_level,
+        'risk_color': risk_color,
+        'risk_title': risk_title,
+        'risk_message': risk_message,
+        'weather': {
+            'total_rainfall_5day': total_rainfall,
+            'estimated_rainfall_10day': round(estimated_10day_rainfall, 1),
+            'avg_humidity': avg_humidity,
+            'avg_temp': avg_temp
+        }
     }
 
-def find_eligible_schemes(crop, disaster_type, land_size, has_insurance):
-    """Find eligible government schemes based on user inputs."""
-    schemes_data = load_schemes_data()
-    eligible_schemes = []
-    
-    for scheme in schemes_data['schemes']:
-        # Check disaster type
-        if disaster_type not in scheme['disaster_types']:
-            continue
+def get_location_details(lat, lon):
+    """Get detailed location info using OpenStreetMap Nominatim reverse geocoding (free)."""
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse"
+        params = {
+            'lat': lat,
+            'lon': lon,
+            'format': 'json',
+            'addressdetails': 1,
+            'zoom': 14  # Village level detail
+        }
+        headers = {
+            'User-Agent': 'CropPilot/1.0 (Farmer Decision Support System)'
+        }
         
-        # Check crop eligibility
-        if crop not in scheme['eligible_crops']:
-            continue
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
         
-        # Check land size
-        if land_size < scheme['min_land_size'] or land_size > scheme['max_land_size']:
-            continue
+        address = data.get('address', {})
         
-        # Check insurance requirement
-        if scheme['requires_insurance'] and not has_insurance:
-            continue
+        # Extract location details
+        village = address.get('village') or address.get('hamlet') or address.get('town') or address.get('city') or address.get('suburb', '')
+        district = address.get('county') or address.get('state_district') or address.get('district', '')
+        state = address.get('state', '')
+        country = address.get('country', '')
         
-        # Build eligibility reasons
-        reasons = []
-        reasons.append(f"Your crop ({crop}) is covered under this scheme")
-        reasons.append(f"Disaster type ({disaster_type.replace('_', ' ')}) is eligible")
-        reasons.append(f"Your land size ({land_size} hectares) meets the criteria")
-        if has_insurance and 'insurance' in scheme['id']:
-            reasons.append("You have crop insurance which qualifies for claims")
-        if land_size <= 2:
-            reasons.append("Small/marginal farmer benefits apply")
+        # Build display name
+        display_parts = []
+        if village:
+            display_parts.append(village)
+        if district:
+            display_parts.append(district)
+        if state:
+            display_parts.append(state)
         
-        eligible_schemes.append({
-            'name': scheme['name'],
-            'description': scheme['description'],
-            'max_amount': scheme['max_amount'],
-            'documents': scheme['documents_required'],
-            'steps': scheme['application_steps'],
-            'helpline': scheme['helpline'],
-            'website': scheme['website'],
-            'reasons': reasons
-        })
-    
-    return eligible_schemes
+        return {
+            'village': village,
+            'district': district,
+            'state': state,
+            'country': country,
+            'display_name': ', '.join(display_parts) if display_parts else 'Unknown Location',
+            'full_address': data.get('display_name', '')
+        }
+        
+    except Exception as e:
+        print(f"Reverse geocoding error: {e}")
+        return {
+            'village': '',
+            'district': '',
+            'state': '',
+            'country': '',
+            'display_name': 'Location details unavailable',
+            'full_address': ''
+        }
 
-# ==================== ROUTES ====================
+# ==================== AUTHENTICATION ROUTES ====================
 
 @app.route('/')
-def index():
-    """Redirect to login or dashboard."""
+def home():
+    """Home page - redirect to dashboard if logged in, else to login."""
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Handle user login."""
+    """User login page."""
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     
     if request.method == 'POST':
         phone = request.form.get('phone', '').strip()
         password = request.form.get('password', '')
-        input_name = request.form.get('name', '').strip()
-
+        
         if not phone or not password:
             flash('Please enter phone number and password.', 'danger')
             return render_template('login.html')
-
+        
         conn = get_db_connection()
         user = conn.execute('SELECT * FROM users WHERE phone = ?', (phone,)).fetchone()
         conn.close()
-
+        
         if user and check_password_hash(user['password_hash'], password):
             session['user_id'] = user['id']
-            session['user_name'] = input_name if input_name else user['name']
+            session['user_name'] = user['name']
             session['user_phone'] = user['phone']
             session['user_state'] = user['state']
             session['user_district'] = user['district']
-            
-            display_name = input_name if input_name else user['name']
-            flash(f'🙏 Namaste, {display_name}! Welcome back!', 'success')
+            flash(f'Welcome back, {user["name"]}!', 'success')
             return redirect(url_for('dashboard'))
         else:
             flash('Invalid phone number or password.', 'danger')
-
+    
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    """Handle user registration."""
+    """User registration page."""
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     
@@ -683,13 +383,13 @@ def register():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         phone = request.form.get('phone', '').strip()
-        state = request.form.get('state', '').strip()
-        district = request.form.get('district', '').strip()
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
+        state = request.form.get('state', '').strip()
+        district = request.form.get('district', '').strip()
         
         # Validation
-        if not all([name, phone, state, district, password]):
+        if not all([name, phone, password, state, district]):
             flash('All fields are required.', 'danger')
             return render_template('register.html', states=states)
         
@@ -707,14 +407,14 @@ def register():
         
         # Check if phone already exists
         conn = get_db_connection()
-        existing_user = conn.execute('SELECT id FROM users WHERE phone = ?', (phone,)).fetchone()
+        existing = conn.execute('SELECT id FROM users WHERE phone = ?', (phone,)).fetchone()
         
-        if existing_user:
+        if existing:
             conn.close()
             flash('Phone number already registered. Please login.', 'warning')
             return redirect(url_for('login'))
         
-        # Create new user
+        # Create user
         password_hash = generate_password_hash(password)
         cursor = conn.execute(
             'INSERT INTO users (name, phone, password_hash, state, district) VALUES (?, ?, ?, ?, ?)',
@@ -724,83 +424,152 @@ def register():
         user_id = cursor.lastrowid
         conn.close()
         
-        # Auto-login after registration
+        # Auto-login
         session['user_id'] = user_id
         session['user_name'] = name
         session['user_phone'] = phone
         session['user_state'] = state
         session['user_district'] = district
         
-        flash('Registration successful! Welcome to Smart Farmer Assistant.', 'success')
+        flash('Registration successful! Welcome to CropPilot.', 'success')
         return redirect(url_for('dashboard'))
     
     return render_template('register.html', states=states)
 
 @app.route('/logout')
 def logout():
-    """Handle user logout."""
+    """Logout user."""
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
+# ==================== DASHBOARD ====================
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    """Render the main dashboard."""
+    """Main dashboard after login."""
     return render_template('dashboard.html')
 
-@app.route('/crop-advisor')
-@login_required
-def crop_form():
-    """Render the crop advisory form."""
-    crop_data = load_crop_data()
-    seasons = crop_data.get('seasons', {})
-    return render_template('crop_form.html', seasons=seasons)
+# ==================== VILLAGE RISK MAP ====================
 
-@app.route('/crop-result', methods=['POST'])
+@app.route('/risk-map')
 @login_required
-def crop_result():
-    """Process crop advisory form and show recommendations."""
+def risk_map():
+    """Village Risk Map page."""
+    return render_template('index.html')
+
+@app.route('/api/analyze-risk', methods=['POST'])
+@login_required
+def analyze_risk_api():
+    """API endpoint to analyze village risk."""
     try:
-        lat = float(request.form.get('latitude', 0))
-        lon = float(request.form.get('longitude', 0))
-        season = request.form.get('season', 'Kharif')
+        data = request.get_json()
+        lat = float(data.get('lat', 0))
+        lon = float(data.get('lon', 0))
         
         if not (-90 <= lat <= 90):
-            flash('Latitude must be between -90 and 90.', 'danger')
-            return redirect(url_for('crop_form'))
+            return jsonify({'success': False, 'error': 'Invalid latitude. Must be between -90 and 90.'})
         
         if not (-180 <= lon <= 180):
-            flash('Longitude must be between -180 and 180.', 'danger')
-            return redirect(url_for('crop_form'))
+            return jsonify({'success': False, 'error': 'Invalid longitude. Must be between -180 and 180.'})
         
-        results = recommend_crops(lat, lon, season)
-        return render_template('crop_result.html', results=results)
+        result = analyze_village_risk(lat, lon)
+        return jsonify(result)
         
     except ValueError:
-        flash('Please enter valid numeric values for coordinates.', 'danger')
-        return redirect(url_for('crop_form'))
+        return jsonify({'success': False, 'error': 'Invalid coordinates. Please enter valid numbers.'})
     except Exception as e:
-        print(f"Error: {e}")
-        flash('An error occurred. Please try again.', 'danger')
-        return redirect(url_for('crop_form'))
+        return jsonify({'success': False, 'error': f'Error: {str(e)}'})
+
+# ==================== FARM LOGBOOK ====================
+
+@app.route('/inventory')
+@login_required
+def inventory():
+    """Farmer Management System - Farm Logbook page."""
+    user_id = session.get('user_id')
+    conn = get_db_connection()
+    logs = conn.execute(
+        'SELECT * FROM farm_logs WHERE user_id = ? ORDER BY created_at DESC',
+        (user_id,)
+    ).fetchall()
+    conn.close()
+    return render_template('inventory.html', logs=logs)
+
+@app.route('/inventory/add', methods=['POST'])
+@login_required
+def add_log():
+    """Add a new farm log entry."""
+    try:
+        user_id = session.get('user_id')
+        crop_name = request.form.get('crop_name', '').strip()
+        sowing_date = request.form.get('sowing_date', '')
+        duration_days = request.form.get('duration_days', '')
+        expected_harvest_date = request.form.get('expected_harvest_date', '')
+        money_spent = request.form.get('money_spent', 0)
+        money_earned = request.form.get('money_earned', 0)
+        notes = request.form.get('notes', '').strip()
+        
+        if not crop_name or not sowing_date:
+            flash('Crop name and sowing date are required.', 'danger')
+            return redirect(url_for('inventory'))
+        
+        # Calculate harvest date from duration
+        if duration_days and not expected_harvest_date:
+            sowing = datetime.strptime(sowing_date, '%Y-%m-%d')
+            harvest = sowing + timedelta(days=int(duration_days))
+            expected_harvest_date = harvest.strftime('%Y-%m-%d')
+        
+        money_spent = float(money_spent) if money_spent else 0
+        money_earned = float(money_earned) if money_earned else 0
+        
+        conn = get_db_connection()
+        conn.execute("""
+            INSERT INTO farm_logs (user_id, crop_name, sowing_date, expected_harvest_date, money_spent, money_earned, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (user_id, crop_name, sowing_date, expected_harvest_date, money_spent, money_earned, notes))
+        conn.commit()
+        conn.close()
+        
+        flash('Farm log entry added successfully!', 'success')
+        
+    except Exception as e:
+        flash(f'Error adding log: {str(e)}', 'danger')
+    
+    return redirect(url_for('inventory'))
+
+@app.route('/inventory/delete/<int:log_id>', methods=['POST'])
+@login_required
+def delete_log(log_id):
+    """Delete a farm log entry."""
+    try:
+        user_id = session.get('user_id')
+        conn = get_db_connection()
+        conn.execute('DELETE FROM farm_logs WHERE id = ? AND user_id = ?', (log_id, user_id))
+        conn.commit()
+        conn.close()
+        flash('Log entry deleted successfully.', 'success')
+    except Exception as e:
+        flash(f'Error deleting log: {str(e)}', 'danger')
+    
+    return redirect(url_for('inventory'))
+
+# ==================== DISASTER SCHEME NAVIGATOR ====================
 
 @app.route('/disaster-help')
 @login_required
 def disaster_form():
-    """Render the disaster help form."""
+    """Disaster Scheme Navigator - Input form."""
     schemes_data = load_schemes_data()
-    crop_data = load_crop_data()
-    
-    crops = [crop['name'] for crop in crop_data.get('crops', [])]
+    crops = schemes_data.get('crops', [])
     disaster_types = schemes_data.get('disaster_types', [])
-    
     return render_template('disaster_form.html', crops=crops, disaster_types=disaster_types)
 
 @app.route('/disaster-result', methods=['POST'])
 @login_required
 def disaster_result():
-    """Process disaster form and show eligible schemes."""
+    """Disaster Scheme Navigator - Results page."""
     try:
         crop = request.form.get('crop', '')
         disaster_type = request.form.get('disaster_type', '')
@@ -814,8 +583,8 @@ def disaster_result():
         # Get disaster info for display
         schemes_data = load_schemes_data()
         disaster_info = next(
-            (d for d in schemes_data['disaster_types'] if d['id'] == disaster_type),
-            {'id': disaster_type, 'name': disaster_type, 'icon': '⚠️'}
+            (d for d in schemes_data.get('disaster_types', []) if d['id'] == disaster_type),
+            {'id': disaster_type, 'name': disaster_type.replace('_', ' ').title(), 'icon': '⚠️'}
         )
         
         # Find eligible schemes
@@ -834,50 +603,22 @@ def disaster_result():
         flash('Please enter valid values.', 'danger')
         return redirect(url_for('disaster_form'))
     except Exception as e:
-        print(f"Error: {e}")
-        flash('An error occurred. Please try again.', 'danger')
+        flash(f'An error occurred: {str(e)}', 'danger')
         return redirect(url_for('disaster_form'))
 
-# API Status check route
-@app.route('/api-status')
-@login_required
-def api_status():
-    """Check if OpenWeather API is working."""
-    # Test with Delhi coordinates
-    weather = get_weather_forecast(28.6139, 77.2090)
-    location = get_location_details(28.6139, 77.2090)
-    return {
-        'api_configured': bool(OPENWEATHER_API_KEY and len(OPENWEATHER_API_KEY) > 20),
-        'api_working': weather.get('success', False),
-        'weather_source': weather.get('source', 'Unknown'),
-        'location': location,
-        'test_data': weather
-    }
-
-# Ensure model is trained before first request
-@app.before_request
-def ensure_model():
-    """Ensure ML model is available."""
-    global model, rainfall_encoder, season_encoder
-    if model is None:
-        model, rainfall_encoder, season_encoder = load_model()
+# ==================== MAIN ====================
 
 if __name__ == '__main__':
-    # Train model if it doesn't exist
-    if not os.path.exists('model.pkl'):
-        print("Training ML model for first time...")
-        train_model()
-    
     print("\n" + "=" * 60)
-    print("🌾 Smart Farmer Assistant - Starting...")
+    print("🌾 CropPilot - Starting...")
     print("=" * 60)
     
-    if OPENWEATHER_API_KEY and len(OPENWEATHER_API_KEY) > 20:
+    if OPENWEATHER_API_KEY and OPENWEATHER_API_KEY != 'YOUR_API_KEY_HERE' and len(OPENWEATHER_API_KEY) > 20:
         print("✅ OpenWeather API key configured")
     else:
         print("⚠️  OpenWeather API key NOT configured")
-        print("   Weather will be estimated based on location")
         print("   Get free API key: https://openweathermap.org/api")
+        print("   Add to .env file: OPENWEATHER_API_KEY=your_key")
     
     print("\n🌐 Open http://127.0.0.1:5000 in your browser")
     print("=" * 60 + "\n")

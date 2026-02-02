@@ -181,6 +181,15 @@
     {"id": "earthquake", "name": "Earthquake", "icon": "🏚️"},
     {"id": "landslide", "name": "Landslide", "icon": "⛰️"}
   ],
+  "crops": [
+    "Rice", "Wheat", "Maize", "Groundnut", "Mustard", "Chickpea", "Barley",
+    "Millets", "Ragi", "Sorghum", "Cotton", "Sugarcane", "Soybean", "Sunflower",
+    "Potato", "Onion", "Tomato", "Brinjal", "Cabbage", "Cauliflower",
+    "Watermelon", "Cucumber", "Muskmelon", "Banana", "Mango", "Papaya",
+    "Chilli", "Turmeric", "Ginger", "Garlic", "Peas", "Lentils", "Pigeon Pea",
+    "Jute", "Tea", "Coffee", "Cardamom", "Pepper", "Coconut", "Arecanut",
+    "Rubber", "Cashew", "Other"
+  ],
   "states": [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
     "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
