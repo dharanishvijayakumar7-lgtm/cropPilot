@@ -5,68 +5,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CropPilot - Farm Logbook</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --primary: #2d8a4e;
+            --primary-dark: #1e6b3a;
+            --bg-main: #f8faf8;
+            --bg-card: #ffffff;
+            --bg-sidebar: #f5f8f5;
+            --text-primary: #2c3e50;
+            --text-secondary: #5a6c7d;
+            --text-muted: #8a9aa8;
+            --border: #e0e8e4;
+            --shadow: rgba(45, 138, 78, 0.08);
+            --danger: #e74c3c;
+            --success: #27ae60;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a2e;
-            color: #fff;
+            background: var(--bg-main);
+            color: var(--text-primary);
             min-height: 100vh;
         }
 
-        /* Navigation Bar */
         .navbar {
-            background: #16213e;
-            padding: 15px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 12px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
+            top: 0; left: 0; right: 0;
             z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 15px var(--shadow);
         }
 
         .navbar .logo {
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             font-weight: 700;
-            color: #4ecca3;
-        }
-
-        .navbar .logo span {
             color: #fff;
+            text-decoration: none;
         }
 
         .nav-links {
             display: flex;
-            gap: 20px;
+            gap: 8px;
         }
 
         .nav-links a {
-            color: #a0a0a0;
+            color: rgba(255,255,255,0.85);
             text-decoration: none;
             padding: 8px 16px;
             border-radius: 8px;
             transition: all 0.3s;
             font-weight: 500;
+            font-size: 0.9rem;
         }
 
         .nav-links a:hover, .nav-links a.active {
-            background: #4ecca3;
-            color: #16213e;
+            background: rgba(255,255,255,0.2);
+            color: #fff;
         }
 
-        /* Main Container */
+        .nav-links a.logout { color: #ffcdd2; }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 80px 20px 40px;
+            padding: 80px 24px 40px;
         }
 
         .page-header {
@@ -74,54 +81,53 @@
         }
 
         .page-header h1 {
-            color: #4ecca3;
-            font-size: 2rem;
-            margin-bottom: 10px;
+            color: var(--primary);
+            font-size: 1.8rem;
+            margin-bottom: 8px;
         }
 
         .page-header p {
-            color: #666;
+            color: var(--text-muted);
         }
 
-        /* Flash Messages */
         .flash-message {
-            padding: 12px 20px;
-            border-radius: 8px;
+            padding: 14px 18px;
+            border-radius: 10px;
             margin-bottom: 20px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
 
         .flash-message.success {
-            background: #4ecca320;
-            border: 1px solid #4ecca3;
-            color: #4ecca3;
+            background: #e8f5e9;
+            border: 1px solid #a5d6a7;
+            color: #2e7d32;
         }
 
         .flash-message.danger {
-            background: #ff6b6b20;
-            border: 1px solid #ff6b6b;
-            color: #ff6b6b;
+            background: #ffebee;
+            border: 1px solid #ef9a9a;
+            color: #c62828;
         }
 
-        /* Two Column Layout */
         .content-grid {
             display: grid;
             grid-template-columns: 350px 1fr;
             gap: 30px;
         }
 
-        /* Form Card */
         .form-card {
-            background: #16213e;
-            border-radius: 12px;
-            padding: 25px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 24px;
             height: fit-content;
             position: sticky;
             top: 80px;
+            box-shadow: 0 4px 20px var(--shadow);
+            border: 1px solid var(--border);
         }
 
         .form-card h2 {
-            color: #fff;
+            color: var(--primary);
             font-size: 1.2rem;
             margin-bottom: 20px;
             display: flex;
@@ -135,33 +141,36 @@
 
         .form-group label {
             display: block;
-            color: #a0a0a0;
+            color: var(--text-secondary);
             margin-bottom: 6px;
             font-size: 0.85rem;
+            font-weight: 500;
         }
 
         .form-group input, .form-group textarea {
             width: 100%;
             padding: 10px 14px;
-            border: 2px solid #2d3a5a;
-            border-radius: 8px;
-            background: #1a1a2e;
-            color: #fff;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg-sidebar);
+            color: var(--text-primary);
             font-size: 0.95rem;
-            transition: border-color 0.3s;
+            transition: all 0.3s;
         }
 
         .form-group input:focus, .form-group textarea:focus {
             outline: none;
-            border-color: #4ecca3;
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(45, 138, 78, 0.1);
         }
 
         .form-group textarea {
-            resize: vertical;
             min-height: 80px;
+            resize: vertical;
         }
 
-        .form-row {
+        .row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
@@ -170,37 +179,31 @@
         .btn {
             width: 100%;
             padding: 12px;
-            background: linear-gradient(135deg, #4ecca3 0%, #38b58b 100%);
-            color: #16213e;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 1rem;
+            border-radius: 10px;
+            font-size: 0.95rem;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.3s;
         }
 
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(78, 204, 163, 0.3);
+            box-shadow: 0 6px 20px rgba(45, 138, 78, 0.25);
         }
 
-        .hint {
-            font-size: 0.75rem;
-            color: #555;
-            margin-top: 4px;
+        .records-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px var(--shadow);
+            border: 1px solid var(--border);
         }
 
-        /* Table Card */
-        .table-card {
-            background: #16213e;
-            border-radius: 12px;
-            padding: 25px;
-            overflow: hidden;
-        }
-
-        .table-card h2 {
-            color: #fff;
+        .records-card h2 {
+            color: var(--primary);
             font-size: 1.2rem;
             margin-bottom: 20px;
             display: flex;
@@ -208,87 +211,56 @@
             gap: 8px;
         }
 
-        .table-wrapper {
+        .table-container {
             overflow-x: auto;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.9rem;
         }
 
         th, td {
-            padding: 12px 15px;
+            padding: 14px 16px;
             text-align: left;
-            border-bottom: 1px solid #2d3a5a;
+            border-bottom: 1px solid var(--border);
         }
 
         th {
-            background: #1a1a2e;
-            color: #4ecca3;
+            background: var(--bg-sidebar);
+            color: var(--text-secondary);
             font-weight: 600;
-            white-space: nowrap;
-        }
-
-        td {
-            color: #ccc;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         tr:hover {
-            background: #1a1a2e50;
+            background: var(--bg-sidebar);
         }
 
-        .crop-name {
-            font-weight: 600;
-            color: #fff;
-        }
-
-        .money-spent {
-            color: #ff6b6b;
-        }
-
-        .money-earned {
-            color: #4ecca3;
-        }
-
-        .profit-positive {
-            color: #4ecca3;
-            font-weight: 600;
-        }
-
-        .profit-negative {
-            color: #ff6b6b;
-            font-weight: 600;
-        }
-
-        .notes-cell {
-            max-width: 150px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+        .profit { color: var(--success); font-weight: 600; }
+        .loss { color: var(--danger); font-weight: 600; }
 
         .delete-btn {
-            background: transparent;
-            border: 1px solid #ff6b6b;
-            color: #ff6b6b;
-            padding: 5px 10px;
-            border-radius: 4px;
+            background: none;
+            border: none;
+            color: var(--danger);
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 1.1rem;
+            padding: 4px 8px;
+            border-radius: 6px;
             transition: all 0.2s;
         }
 
         .delete-btn:hover {
-            background: #ff6b6b;
-            color: #fff;
+            background: #ffebee;
         }
 
         .empty-state {
             text-align: center;
             padding: 50px 20px;
-            color: #666;
+            color: var(--text-muted);
         }
 
         .empty-state .icon {
@@ -296,34 +268,32 @@
             margin-bottom: 15px;
         }
 
-        /* Summary Cards */
-        .summary-row {
+        .summary-stats {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
-        .summary-card {
-            background: #1a1a2e;
-            border-radius: 8px;
-            padding: 15px;
+        .stat-box {
+            background: var(--bg-sidebar);
+            padding: 16px;
+            border-radius: 12px;
             text-align: center;
         }
 
-        .summary-card .value {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #4ecca3;
+        .stat-box .value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary);
         }
 
-        .summary-card .label {
+        .stat-box .label {
             font-size: 0.8rem;
-            color: #666;
-            margin-top: 5px;
+            color: var(--text-muted);
+            margin-top: 4px;
         }
 
-        /* Mobile Responsive */
         @media (max-width: 900px) {
             .content-grid {
                 grid-template-columns: 1fr;
@@ -333,49 +303,35 @@
                 position: static;
             }
 
-            .summary-row {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 600px) {
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-
             .nav-links a {
                 padding: 6px 10px;
-                font-size: 0.85rem;
+                font-size: 0.8rem;
             }
 
-            th, td {
-                padding: 8px 10px;
-                font-size: 0.8rem;
+            .summary-stats {
+                grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Navigation Bar -->
     <nav class="navbar">
-        <div class="logo">🌾 Crop<span>Pilot</span></div>
+        <a href="{{ url_for('dashboard') }}" class="logo">🌾 CropPilot</a>
         <div class="nav-links">
             <a href="{{ url_for('dashboard') }}">Dashboard</a>
             <a href="{{ url_for('risk_map') }}">Risk Map</a>
             <a href="{{ url_for('inventory') }}" class="active">Farm Logbook</a>
             <a href="{{ url_for('disaster_form') }}">Disaster Help</a>
-            <a href="{{ url_for('logout') }}" style="color: #ff6b6b;">Logout</a>
+            <a href="{{ url_for('logout') }}" class="logout">Logout</a>
         </div>
     </nav>
 
-    <!-- Main Container -->
     <div class="container">
         <div class="page-header">
             <h1>📒 Farm Logbook</h1>
-            <p>Track your farming history, expenses, and earnings</p>
+            <p>Track your farming activities, expenses, and earnings</p>
         </div>
 
-        <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -385,13 +341,12 @@
         {% endwith %}
 
         <div class="content-grid">
-            <!-- Add Log Form -->
             <div class="form-card">
                 <h2>➕ Add New Entry</h2>
-                <form action="/inventory/add" method="POST">
+                <form action="{{ url_for('add_log') }}" method="POST">
                     <div class="form-group">
                         <label for="crop_name">Crop Name *</label>
-                        <input type="text" id="crop_name" name="crop_name" placeholder="e.g., Wheat, Rice, Cotton" required>
+                        <input type="text" id="crop_name" name="crop_name" placeholder="e.g., Rice, Wheat" required>
                     </div>
 
                     <div class="form-group">
@@ -399,129 +354,98 @@
                         <input type="date" id="sowing_date" name="sowing_date" required>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="duration_days">Duration (days)</label>
-                            <input type="number" id="duration_days" name="duration_days" placeholder="e.g., 120" min="1">
-                            <p class="hint">Auto-calculates harvest date</p>
-                        </div>
-                        <div class="form-group">
-                            <label for="expected_harvest_date">Or Harvest Date</label>
-                            <input type="date" id="expected_harvest_date" name="expected_harvest_date">
-                        </div>
+                    <div class="form-group">
+                        <label for="duration_days">Crop Duration (Days)</label>
+                        <input type="number" id="duration_days" name="duration_days" placeholder="e.g., 120">
                     </div>
 
-                    <div class="form-row">
+                    <div class="row">
                         <div class="form-group">
-                            <label for="money_spent">Money Spent (₹)</label>
-                            <input type="number" id="money_spent" name="money_spent" placeholder="0" min="0" step="0.01">
+                            <label for="money_spent">💸 Spent (₹)</label>
+                            <input type="number" id="money_spent" name="money_spent" placeholder="0" step="0.01">
                         </div>
                         <div class="form-group">
-                            <label for="money_earned">Money Earned (₹)</label>
-                            <input type="number" id="money_earned" name="money_earned" placeholder="0" min="0" step="0.01">
+                            <label for="money_earned">💰 Earned (₹)</label>
+                            <input type="number" id="money_earned" name="money_earned" placeholder="0" step="0.01">
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label for="notes">Notes</label>
-                        <textarea id="notes" name="notes" placeholder="Any observations, issues, or reminders..."></textarea>
+                        <textarea id="notes" name="notes" placeholder="Any additional notes..."></textarea>
                     </div>
 
-                    <button type="submit" class="btn">💾 Save Entry</button>
+                    <button type="submit" class="btn">➕ Add Entry</button>
                 </form>
             </div>
 
-            <!-- Logs Table -->
-            <div class="table-card">
-                <h2>📊 Your Farm Records</h2>
-
+            <div class="records-card">
+                <h2>📋 Your Records</h2>
+                
                 {% if logs %}
-                <!-- Summary Cards -->
-                <div class="summary-row">
-                    <div class="summary-card">
+                <div class="summary-stats">
+                    <div class="stat-box">
                         <div class="value">{{ logs|length }}</div>
-                        <div class="label">Total Records</div>
+                        <div class="label">Total Entries</div>
                     </div>
-                    <div class="summary-card">
+                    <div class="stat-box">
                         <div class="value">₹{{ "%.0f"|format(logs|sum(attribute='money_spent')) }}</div>
                         <div class="label">Total Spent</div>
                     </div>
-                    <div class="summary-card">
+                    <div class="stat-box">
                         <div class="value">₹{{ "%.0f"|format(logs|sum(attribute='money_earned')) }}</div>
                         <div class="label">Total Earned</div>
                     </div>
                 </div>
+                {% endif %}
 
-                <div class="table-wrapper">
+                <div class="table-container">
+                    {% if logs %}
                     <table>
                         <thead>
                             <tr>
                                 <th>Crop</th>
                                 <th>Sowing Date</th>
                                 <th>Harvest Date</th>
-                                <th>Spent (₹)</th>
-                                <th>Earned (₹)</th>
-                                <th>Profit (₹)</th>
-                                <th>Notes</th>
-                                <th>Action</th>
+                                <th>Spent</th>
+                                <th>Earned</th>
+                                <th>Profit/Loss</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for log in logs %}
                             <tr>
-                                <td class="crop-name">{{ log['crop_name'] }}</td>
-                                <td>{{ log['sowing_date'] }}</td>
-                                <td>{{ log['expected_harvest_date'] or '-' }}</td>
-                                <td class="money-spent">{{ "%.0f"|format(log['money_spent']) }}</td>
-                                <td class="money-earned">{{ "%.0f"|format(log['money_earned']) }}</td>
-                                <td class="{% if log['money_earned'] - log['money_spent'] >= 0 %}profit-positive{% else %}profit-negative{% endif %}">
-                                    {{ "%.0f"|format(log['money_earned'] - log['money_spent']) }}
-                                </td>
-                                <td class="notes-cell" title="{{ log['notes'] or '' }}">{{ log['notes'] or '-' }}</td>
+                                <td><strong>{{ log.crop_name }}</strong></td>
+                                <td>{{ log.sowing_date }}</td>
+                                <td>{{ log.expected_harvest_date or '-' }}</td>
+                                <td>₹{{ "%.0f"|format(log.money_spent or 0) }}</td>
+                                <td>₹{{ "%.0f"|format(log.money_earned or 0) }}</td>
                                 <td>
-                                    <form action="/inventory/delete/{{ log['id'] }}" method="POST" style="display:inline;" onsubmit="return confirm('Delete this entry?');">
-                                        <button type="submit" class="delete-btn">🗑️</button>
+                                    {% set profit = (log.money_earned or 0) - (log.money_spent or 0) %}
+                                    <span class="{{ 'profit' if profit >= 0 else 'loss' }}">
+                                        {{ '+' if profit >= 0 else '' }}₹{{ "%.0f"|format(profit) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <form action="{{ url_for('delete_log', log_id=log.id) }}" method="POST" style="display: inline;">
+                                        <button type="submit" class="delete-btn" onclick="return confirm('Delete this entry?')">🗑️</button>
                                     </form>
                                 </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
+                    {% else %}
+                    <div class="empty-state">
+                        <div class="icon">📭</div>
+                        <h3>No records yet</h3>
+                        <p>Start by adding your first crop entry!</p>
+                    </div>
+                    {% endif %}
                 </div>
-                {% else %}
-                <div class="empty-state">
-                    <div class="icon">📝</div>
-                    <p>No farm records yet.</p>
-                    <p>Add your first crop entry using the form!</p>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
-
-    <script>
-        // Auto-calculate harvest date when duration is entered
-        document.getElementById('duration_days').addEventListener('input', function() {
-            const sowingDate = document.getElementById('sowing_date').value;
-            const duration = parseInt(this.value);
-            
-            if (sowingDate && duration > 0) {
-                const sowing = new Date(sowingDate);
-                sowing.setDate(sowing.getDate() + duration);
-                document.getElementById('expected_harvest_date').value = sowing.toISOString().split('T')[0];
-            }
-        });
-
-        // Also update when sowing date changes
-        document.getElementById('sowing_date').addEventListener('input', function() {
-            const duration = parseInt(document.getElementById('duration_days').value);
-            
-            if (this.value && duration > 0) {
-                const sowing = new Date(this.value);
-                sowing.setDate(sowing.getDate() + duration);
-                document.getElementById('expected_harvest_date').value = sowing.toISOString().split('T')[0];
-            }
-        });
-    </script>
 </body>
 </html>

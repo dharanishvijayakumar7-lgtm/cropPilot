@@ -3,199 +3,341 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Smart Farmer Assistant</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Dashboard - CropPilot</title>
     <style>
+        :root {
+            --primary: #2d8a4e;
+            --primary-dark: #1e6b3a;
+            --bg-main: #f8faf8;
+            --bg-card: #ffffff;
+            --text-primary: #2c3e50;
+            --text-secondary: #5a6c7d;
+            --text-muted: #8a9aa8;
+            --border: #e0e8e4;
+            --shadow: rgba(45, 138, 78, 0.08);
+            --danger: #e74c3c;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            background: #f5f7f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
             min-height: 100vh;
         }
+
         .navbar {
-            background: linear-gradient(135deg, #2d5016 0%, #4a7c23 100%);
-            padding: 15px 0;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .navbar-brand {
-            color: white !important;
+
+        .navbar .logo {
+            font-size: 1.4rem;
             font-weight: 700;
-            font-size: 1.3rem;
-        }
-        .nav-link { color: rgba(255,255,255,0.9) !important; }
-        .welcome-section {
-            background: linear-gradient(135deg, #4a7c23 0%, #6b8e23 100%);
-            color: white;
-            padding: 40px 20px;
-            text-align: center;
-        }
-        .welcome-section h2 {
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-        .feature-card {
-            background: white;
-            border-radius: 20px;
-            padding: 40px 30px;
-            text-align: center;
-            box-shadow: 0 5px 30px rgba(0,0,0,0.08);
-            transition: transform 0.3s, box-shadow 0.3s;
-            height: 100%;
-        }
-        .feature-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
-        }
-        .feature-icon {
-            font-size: 4rem;
-            margin-bottom: 20px;
-        }
-        .feature-card h3 {
-            color: #2d5016;
-            font-weight: 700;
-            margin-bottom: 15px;
-        }
-        .feature-card p {
-            color: #666;
-            margin-bottom: 25px;
-        }
-        .btn-feature {
-            background: linear-gradient(135deg, #4a7c23 0%, #2d5016 100%);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 10px;
-            font-weight: 600;
+            color: #fff;
             text-decoration: none;
         }
-        .btn-feature:hover {
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-links a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+
+        .nav-links a.logout { color: #ffcdd2; }
+
+        .welcome-section {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: white;
-            background: linear-gradient(135deg, #3d6a1c 0%, #234010 100%);
+            padding: 40px 24px;
+            text-align: center;
         }
-        .btn-feature.disaster {
-            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+
+        .welcome-section h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
         }
-        .btn-feature.disaster:hover {
-            background: linear-gradient(135deg, #c82333 0%, #921925 100%);
+
+        .welcome-section p {
+            opacity: 0.9;
+            margin-bottom: 16px;
         }
-        .user-info {
-            background: rgba(255,255,255,0.15);
-            padding: 15px 20px;
-            border-radius: 10px;
+
+        .user-badge {
             display: inline-block;
-            margin-top: 15px;
+            background: rgba(255,255,255,0.15);
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        .alert {
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+        }
+
+        .alert-success {
+            background: #e8f5e9;
+            border: 1px solid #a5d6a7;
+            color: #2e7d32;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 4px 20px var(--shadow);
+            border: 1px solid var(--border);
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(45, 138, 78, 0.15);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .feature-card h3 {
+            color: var(--primary);
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .feature-list {
+            text-align: left;
+            margin-bottom: 24px;
+            padding: 0 10px;
+        }
+
+        .feature-list li {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            list-style: none;
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            color: var(--primary);
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 28px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(45, 138, 78, 0.25);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger) 0%, #c0392b 100%);
+            color: white;
+        }
+
+        .helplines {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .helplines h3 {
+            color: var(--primary);
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+        }
+
+        .helplines-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .helpline-item {
+            background: var(--bg-main);
+            padding: 14px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .helpline-item .name {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .helpline-item .number {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            .nav-links a {
+                padding: 6px 10px;
+                font-size: 0.8rem;
+            }
+
+            .welcome-section h1 {
+                font-size: 1.5rem;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}">🌾✈️ CropPilot</a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="{{ url_for('risk_map') }}">Risk Map</a>
-                <a class="nav-link" href="{{ url_for('inventory') }}">Farm Logbook</a>
-                <a class="nav-link" href="{{ url_for('disaster_form') }}">Disaster Help</a>
-                <a class="nav-link" href="{{ url_for('logout') }}">Logout 🚪</a>
-            </div>
+    <nav class="navbar">
+        <a href="{{ url_for('dashboard') }}" class="logo">🌾 CropPilot</a>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}" class="active">Dashboard</a>
+            <a href="{{ url_for('risk_map') }}">Risk Map</a>
+            <a href="{{ url_for('inventory') }}">Farm Logbook</a>
+            <a href="{{ url_for('disaster_form') }}">Disaster Help</a>
+            <a href="{{ url_for('logout') }}" class="logout">Logout</a>
         </div>
     </nav>
 
     <div class="welcome-section">
-        <div class="container">
-            <h2>नमस्ते, {{ session.user_name }}! 🙏</h2>
-            <p>Welcome to your Smart Farmer Dashboard</p>
-            <div class="user-info">
-                📍 {{ session.user_district }}, {{ session.user_state }}
-            </div>
-        </div>
+        <h1>नमस्ते, {{ session.user_name }}! 🙏</h1>
+        <p>Welcome to your Smart Farmer Dashboard</p>
+        <div class="user-badge">📍 {{ session.user_district }}, {{ session.user_state }}</div>
     </div>
 
-    <div class="container py-5">
+    <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <div class="row g-4">
-            <!-- Village Risk Map Card -->
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <div class="feature-icon">🗺️🌡️</div>
-                    <h3>Village Risk Map</h3>
-                    <p>Check weather-based risk assessment for any village. Get drought, flood, and moisture warnings based on live weather forecasts.</p>
-                    <ul class="list-unstyled text-start mb-4" style="color: #666; font-size: 0.9rem;">
-                        <li>✓ Interactive map</li>
-                        <li>✓ 5-day weather forecast</li>
-                        <li>✓ Drought/Flood risk alerts</li>
-                        <li>✓ Click-to-analyze locations</li>
-                    </ul>
-                    <a href="{{ url_for('risk_map') }}" class="btn-feature">
-                        Open Risk Map →
-                    </a>
-                </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🗺️</div>
+                <h3>Village Risk Map</h3>
+                <p>Check weather-based risk assessment for any village with live forecasts.</p>
+                <ul class="feature-list">
+                    <li>Interactive map interface</li>
+                    <li>5-day weather forecast</li>
+                    <li>Drought & flood alerts</li>
+                    <li>Village-level details</li>
+                </ul>
+                <a href="{{ url_for('risk_map') }}" class="btn btn-primary">Open Risk Map →</a>
             </div>
 
-            <!-- Farm Logbook Card -->
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <div class="feature-icon">📒💰</div>
-                    <h3>Farm Logbook</h3>
-                    <p>Track your farming activities, expenses, and earnings. Keep records of all your crops with sowing dates and harvest schedules.</p>
-                    <ul class="list-unstyled text-start mb-4" style="color: #666; font-size: 0.9rem;">
-                        <li>✓ Crop-wise tracking</li>
-                        <li>✓ Expense & income records</li>
-                        <li>✓ Profit/Loss calculation</li>
-                        <li>✓ Harvest date reminders</li>
-                    </ul>
-                    <a href="{{ url_for('inventory') }}" class="btn-feature" style="background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);">
-                        Open Logbook →
-                    </a>
-                </div>
+            <div class="feature-card">
+                <div class="feature-icon">📒</div>
+                <h3>Farm Logbook</h3>
+                <p>Track your farming activities, expenses, and earnings in one place.</p>
+                <ul class="feature-list">
+                    <li>Crop-wise tracking</li>
+                    <li>Expense & income records</li>
+                    <li>Profit/Loss calculation</li>
+                    <li>Harvest date reminders</li>
+                </ul>
+                <a href="{{ url_for('inventory') }}" class="btn btn-info">Open Logbook →</a>
             </div>
 
-            <!-- Disaster Scheme Card -->
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <div class="feature-icon">🆘📋</div>
-                    <h3>Disaster Help & Schemes</h3>
-                    <p>Affected by flood, drought, or other disasters? Find government schemes you're eligible for and get step-by-step guidance.</p>
-                    <ul class="list-unstyled text-start mb-4" style="color: #666; font-size: 0.9rem;">
-                        <li>✓ PMFBY Insurance claims</li>
-                        <li>✓ State disaster relief</li>
-                        <li>✓ Input subsidies</li>
-                        <li>✓ Document checklists</li>
-                    </ul>
-                    <a href="{{ url_for('disaster_form') }}" class="btn-feature disaster">
-                        Find Schemes →
-                    </a>
-                </div>
+            <div class="feature-card">
+                <div class="feature-icon">🆘</div>
+                <h3>Disaster Help</h3>
+                <p>Find government schemes you're eligible for after crop damage.</p>
+                <ul class="feature-list">
+                    <li>PMFBY insurance claims</li>
+                    <li>State disaster relief</li>
+                    <li>Document checklists</li>
+                    <li>Step-by-step guidance</li>
+                </ul>
+                <a href="{{ url_for('disaster_form') }}" class="btn btn-danger">Find Schemes →</a>
             </div>
         </div>
 
-        <!-- Quick Info Section -->
-        <div class="row mt-5">
-            <div class="col-12">
-                <div class="feature-card" style="padding: 25px;">
-                    <h5 style="color: #2d5016; margin-bottom: 15px;">📞 Emergency Helplines</h5>
-                    <div class="row text-start">
-                        <div class="col-md-4 mb-2">
-                            <strong>Kisan Call Center:</strong> 1800-180-1551
-                        </div>
-                        <div class="col-md-4 mb-2">
-                            <strong>Disaster Helpline:</strong> 1070
-                        </div>
-                        <div class="col-md-4 mb-2">
-                            <strong>PM Kisan:</strong> 155261
-                        </div>
-                    </div>
+        <div class="helplines">
+            <h3>📞 Emergency Helplines</h3>
+            <div class="helplines-grid">
+                <div class="helpline-item">
+                    <div class="name">Kisan Call Center</div>
+                    <div class="number">1800-180-1551</div>
+                </div>
+                <div class="helpline-item">
+                    <div class="name">Disaster Helpline</div>
+                    <div class="number">1070</div>
+                </div>
+                <div class="helpline-item">
+                    <div class="name">PM Kisan</div>
+                    <div class="number">155261</div>
                 </div>
             </div>
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

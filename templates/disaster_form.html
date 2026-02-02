@@ -3,80 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Disaster Help - Smart Farmer Assistant</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Disaster Help - CropPilot</title>
     <style>
-        body { background: #f5f7f5; min-height: 100vh; }
+        :root {
+            --primary: #2d8a4e;
+            --primary-dark: #1e6b3a;
+            --bg-main: #f8faf8;
+            --bg-card: #ffffff;
+            --bg-sidebar: #f5f8f5;
+            --text-primary: #2c3e50;
+            --text-secondary: #5a6c7d;
+            --text-muted: #8a9aa8;
+            --border: #e0e8e4;
+            --shadow: rgba(45, 138, 78, 0.08);
+            --danger: #e74c3c;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
         .navbar {
-            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .navbar-brand { color: white !important; font-weight: 700; }
-        .nav-link { color: rgba(255,255,255,0.9) !important; }
+
+        .navbar .logo {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-links a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+
+        .nav-links a.logout { color: #ffcdd2; }
+
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
         .form-card {
-            background: white;
+            background: var(--bg-card);
             border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            padding: 40px;
-            max-width: 600px;
-            margin: 40px auto;
+            padding: 36px;
+            box-shadow: 0 4px 30px var(--shadow);
+            border: 1px solid var(--border);
         }
+
         .form-header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 28px;
         }
-        .form-header .icon { font-size: 3rem; }
-        .form-header h2 { color: #dc3545; font-weight: 700; margin-top: 10px; }
-        .form-control, .form-select {
-            padding: 14px 16px;
-            border-radius: 10px;
-            border: 2px solid #e0e0e0;
+
+        .form-header .icon {
+            font-size: 3rem;
+            margin-bottom: 12px;
         }
-        .form-control:focus, .form-select:focus {
-            border-color: #dc3545;
-            box-shadow: 0 0 0 3px rgba(220,53,69,0.1);
+
+        .form-header h1 {
+            color: var(--primary);
+            font-size: 1.6rem;
+            margin-bottom: 8px;
         }
-        .btn-primary {
-            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
-            border: none;
-            padding: 14px;
-            border-radius: 10px;
-            font-weight: 600;
+
+        .form-header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
         }
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #c82333 0%, #921925 100%);
-        }
-        .disaster-option {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+
         .info-box {
-            background: #fff3cd;
+            background: #fff8e1;
             border-left: 4px solid #ffc107;
-            padding: 15px;
+            padding: 14px 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+            color: #8d6e00;
+        }
+
+        .alert {
+            padding: 12px 16px;
             border-radius: 8px;
             margin-bottom: 20px;
             font-size: 0.9rem;
         }
+
+        .alert-danger {
+            background: #ffebee;
+            border: 1px solid #ef9a9a;
+            color: #c62828;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg-sidebar);
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(45, 138, 78, 0.1);
+        }
+
+        select.form-control {
+            cursor: pointer;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .hint {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(45, 138, 78, 0.25);
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .back-link a:hover {
+            color: var(--primary);
+        }
+
+        @media (max-width: 600px) {
+            .row {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links a {
+                padding: 6px 10px;
+                font-size: 0.8rem;
+            }
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}">🌾✈️ CropPilot</a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
-                <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
-            </div>
+    <nav class="navbar">
+        <a href="{{ url_for('dashboard') }}" class="logo">🌾 CropPilot</a>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('risk_map') }}">Risk Map</a>
+            <a href="{{ url_for('inventory') }}">Farm Logbook</a>
+            <a href="{{ url_for('disaster_form') }}" class="active">Disaster Help</a>
+            <a href="{{ url_for('logout') }}" class="logout">Logout</a>
         </div>
     </nav>
 
     <div class="container">
         <div class="form-card">
             <div class="form-header">
-                <div class="icon">🆘📋</div>
-                <h2>Disaster Scheme Navigator</h2>
-                <p class="text-muted">Tell us about your situation to find eligible government schemes</p>
+                <div class="icon">🆘</div>
+                <h1>Disaster Scheme Navigator</h1>
+                <p>Find government schemes you're eligible for</p>
             </div>
 
             <div class="info-box">
@@ -91,10 +246,10 @@
                 {% endif %}
             {% endwith %}
 
-            <form method="POST" action="{{ url_for('disaster_result') }}" enctype="multipart/form-data">
-                <div class="mb-3">
-                    <label class="form-label">🌾 Affected Crop</label>
-                    <select class="form-select" name="crop" required>
+            <form method="POST" action="{{ url_for('disaster_result') }}">
+                <div class="form-group">
+                    <label for="crop">🌾 Affected Crop</label>
+                    <select class="form-control" id="crop" name="crop" required>
                         <option value="">Select the crop affected</option>
                         {% for crop in crops %}
                             <option value="{{ crop }}">{{ crop }}</option>
@@ -102,9 +257,9 @@
                     </select>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label">⚠️ Type of Disaster</label>
-                    <select class="form-select" name="disaster_type" required>
+                <div class="form-group">
+                    <label for="disaster_type">⚠️ Type of Disaster</label>
+                    <select class="form-control" id="disaster_type" name="disaster_type" required>
                         <option value="">Select disaster type</option>
                         {% for disaster in disaster_types %}
                             <option value="{{ disaster.id }}">{{ disaster.icon }} {{ disaster.name }}</option>
@@ -113,39 +268,28 @@
                 </div>
 
                 <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">📐 Land Size (in hectares)</label>
-                        <input type="number" class="form-control" name="land_size" 
+                    <div class="form-group">
+                        <label for="land_size">📐 Land Size (hectares)</label>
+                        <input type="number" class="form-control" id="land_size" name="land_size" 
                                placeholder="e.g., 2.5" step="0.1" min="0.1" required>
-                        <small class="text-muted">1 hectare = 2.47 acres</small>
+                        <p class="hint">1 hectare = 2.47 acres</p>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">🛡️ Do you have crop insurance?</label>
-                        <select class="form-select" name="has_insurance" required>
-                            <option value="no">No, I don't have insurance</option>
-                            <option value="yes">Yes, I have PMFBY/other insurance</option>
+                    <div class="form-group">
+                        <label for="has_insurance">🛡️ Crop Insurance?</label>
+                        <select class="form-control" id="has_insurance" name="has_insurance" required>
+                            <option value="no">No insurance</option>
+                            <option value="yes">Yes, I have PMFBY/other</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="mb-4">
-                    <label class="form-label">📷 Upload Damage Photo (Optional)</label>
-                    <input type="file" class="form-control" name="damage_photo" 
-                           accept="image/png, image/jpeg, image/jpg">
-                    <small class="text-muted">Upload a clear photo of crop damage for documentation</small>
-                </div>
-
-                <button type="submit" class="btn btn-primary w-100">
-                    🔍 Find Eligible Schemes
-                </button>
+                <button type="submit" class="btn">🔍 Find Eligible Schemes</button>
             </form>
 
-            <div class="text-center mt-3">
-                <a href="{{ url_for('dashboard') }}" class="text-muted">← Back to Dashboard</a>
+            <div class="back-link">
+                <a href="{{ url_for('dashboard') }}">← Back to Dashboard</a>
             </div>
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -194,24 +194,47 @@ def get_weather_forecast_data(lat, lon):
         total_rainfall = 0
         humidity_values = []
         temp_values = []
+        weather_conditions = []
+        clouds_values = []
         
         for item in data.get('list', []):
             temp_values.append(item['main']['temp'])
             humidity_values.append(item['main'].get('humidity', 50))
+            clouds_values.append(item.get('clouds', {}).get('all', 0))
+            
+            # Get weather condition
+            if item.get('weather'):
+                weather_conditions.append(item['weather'][0].get('main', '').lower())
+            
+            # Add rainfall if present
             if 'rain' in item:
                 total_rainfall += item['rain'].get('3h', 0)
+            # Some APIs use '1h' instead
+            if 'rain' in item and '1h' in item['rain']:
+                total_rainfall += item['rain'].get('1h', 0)
         
         avg_humidity = sum(humidity_values) / len(humidity_values) if humidity_values else 50
         avg_temp = sum(temp_values) / len(temp_values) if temp_values else 25
+        avg_clouds = sum(clouds_values) / len(clouds_values) if clouds_values else 0
         city_name = data.get('city', {}).get('name', 'Unknown Location')
+        
+        # Count rainy/cloudy conditions
+        rainy_count = sum(1 for w in weather_conditions if w in ['rain', 'drizzle', 'thunderstorm', 'shower'])
+        cloudy_count = sum(1 for w in weather_conditions if w in ['clouds', 'mist', 'fog', 'haze'])
+        clear_count = sum(1 for w in weather_conditions if w in ['clear', 'sun'])
         
         return {
             'success': True,
             'total_rainfall': round(total_rainfall, 2),
             'avg_humidity': round(avg_humidity, 1),
             'avg_temp': round(avg_temp, 1),
+            'avg_clouds': round(avg_clouds, 1),
             'city': city_name,
-            'forecast_days': 5
+            'forecast_days': 5,
+            'rainy_periods': rainy_count,
+            'cloudy_periods': cloudy_count,
+            'clear_periods': clear_count,
+            'total_periods': len(weather_conditions)
         }
         
     except requests.exceptions.Timeout:
@@ -234,28 +257,76 @@ def analyze_village_risk(lat, lon):
     total_rainfall = weather['total_rainfall']
     avg_humidity = weather['avg_humidity']
     avg_temp = weather['avg_temp']
-    estimated_10day_rainfall = total_rainfall * 2
+    avg_clouds = weather.get('avg_clouds', 0)
+    rainy_periods = weather.get('rainy_periods', 0)
+    cloudy_periods = weather.get('cloudy_periods', 0)
+    total_periods = weather.get('total_periods', 40)
     
-    if estimated_10day_rainfall < 10:
+    # Calculate estimated rainfall considering multiple factors
+    # If there's actual rainfall data, use it; otherwise estimate from humidity and clouds
+    if total_rainfall > 0:
+        estimated_10day_rainfall = total_rainfall * 2
+    else:
+        # Estimate rainfall potential from humidity and cloud cover
+        # High humidity + high clouds = likely rain soon
+        rain_potential = (avg_humidity / 100) * (avg_clouds / 100) * 100
+        estimated_10day_rainfall = rain_potential * 0.8  # Scale to reasonable mm
+        
+        # If there are rainy periods forecast, boost the estimate
+        if rainy_periods > 0:
+            estimated_10day_rainfall += rainy_periods * 5
+    
+    # Determine risk level based on multiple factors
+    rainy_ratio = rainy_periods / total_periods if total_periods > 0 else 0
+    
+    # HIGH RAINFALL / FLOOD RISK
+    if total_rainfall > 50 or estimated_10day_rainfall > 80 or rainy_ratio > 0.4:
+        risk_level = 'flood_risk'
+        risk_color = '#3498db'
+        risk_title = '🌊 High Rainfall / Flood Risk'
+        risk_message = f"Heavy rainfall expected in this area. Estimated {estimated_10day_rainfall:.1f}mm over next 10 days. Humidity: {avg_humidity:.1f}%. Ensure proper drainage and avoid low-lying fields. Consider flood-resistant crop varieties."
+    
+    # EXCESS MOISTURE
+    elif avg_humidity >= 80 or (cloudy_periods + rainy_periods) > total_periods * 0.5:
+        risk_level = 'excess_moisture'
+        risk_color = '#9b59b6'
+        risk_title = '💧 Excess Moisture Conditions'
+        risk_message = f"High moisture levels expected. Humidity: {avg_humidity:.1f}%. Cloud cover: {avg_clouds:.0f}%. Risk of fungal diseases and pest issues. Ensure good air circulation and consider preventive spraying."
+    
+    # GOOD CONDITIONS
+    elif 40 <= avg_humidity <= 75 and 20 <= avg_temp <= 35:
+        risk_level = 'good'
+        risk_color = '#27ae60'
+        risk_title = '✅ Good Growing Conditions'
+        risk_message = f"Favorable conditions for most crops. Temperature: {avg_temp:.1f}°C. Humidity: {avg_humidity:.1f}%. Expected rainfall: {estimated_10day_rainfall:.1f}mm. Ideal time for sowing and field operations."
+    
+    # MODERATE CONDITIONS  
+    elif 30 <= avg_humidity < 40 or estimated_10day_rainfall < 30:
+        risk_level = 'moderate'
+        risk_color = '#f39c12'
+        risk_title = '⚠️ Moderate / Dry Conditions'
+        risk_message = f"Slightly dry conditions expected. Humidity: {avg_humidity:.1f}%. Expected rainfall: {estimated_10day_rainfall:.1f}mm. Consider irrigation planning and mulching to conserve moisture."
+    
+    # DROUGHT RISK - only when genuinely dry
+    elif avg_humidity < 30 and avg_temp > 35 and estimated_10day_rainfall < 10:
         risk_level = 'drought'
         risk_color = '#e74c3c'
-        risk_title = 'High Drought Risk'
-        risk_message = f"This village is expected to receive very low rainfall (estimated {estimated_10day_rainfall:.1f}mm in next 10 days). High drought risk. Consider water conservation measures and drought-resistant crops."
-    elif estimated_10day_rainfall < 50 and avg_humidity < 70:
-        risk_level = 'moderate'
-        risk_color = '#f39c12'
-        risk_title = 'Moderate Conditions'
-        risk_message = f"This village has moderate weather conditions. Expected rainfall: {estimated_10day_rainfall:.1f}mm. Humidity: {avg_humidity:.1f}%. Good conditions for most crops."
-    elif estimated_10day_rainfall >= 50 or avg_humidity >= 80:
-        risk_level = 'excess_moisture'
-        risk_color = '#3498db'
-        risk_title = 'Excess Moisture Risk'
-        risk_message = f"This village may experience excess moisture. Expected rainfall: {estimated_10day_rainfall:.1f}mm. Humidity: {avg_humidity:.1f}%. Risk of flooding or pest/fungal issues. Ensure proper drainage."
+        risk_title = '🏜️ High Drought Risk'
+        risk_message = f"Very dry conditions with low humidity ({avg_humidity:.1f}%) and high temperature ({avg_temp:.1f}°C). Expected rainfall: {estimated_10day_rainfall:.1f}mm. Implement water conservation, use drought-resistant crops, and plan irrigation."
+    
+    # HOT CONDITIONS
+    elif avg_temp > 38:
+        risk_level = 'heat_stress'
+        risk_color = '#e67e22'
+        risk_title = '🌡️ Heat Stress Risk'
+        risk_message = f"High temperatures expected ({avg_temp:.1f}°C). Risk of heat stress to crops. Consider shade nets, increase irrigation frequency, and avoid mid-day field work."
+    
+    # DEFAULT - NORMAL
     else:
-        risk_level = 'moderate'
-        risk_color = '#f39c12'
-        risk_title = 'Moderate Conditions'
-        risk_message = f"Expected rainfall: {estimated_10day_rainfall:.1f}mm. Humidity: {avg_humidity:.1f}%. Normal conditions expected."
+        risk_level = 'normal'
+        risk_color = '#27ae60'
+        risk_title = '✅ Normal Conditions'
+        risk_message = f"Weather conditions are within normal range. Temperature: {avg_temp:.1f}°C. Humidity: {avg_humidity:.1f}%. Expected rainfall: {estimated_10day_rainfall:.1f}mm. Good for regular farming activities."
     
     return {
         'success': True,
@@ -271,7 +342,10 @@ def analyze_village_risk(lat, lon):
             'total_rainfall_5day': total_rainfall,
             'estimated_rainfall_10day': round(estimated_10day_rainfall, 1),
             'avg_humidity': avg_humidity,
-            'avg_temp': avg_temp
+            'avg_temp': avg_temp,
+            'avg_clouds': avg_clouds,
+            'rainy_periods': rainy_periods,
+            'cloudy_periods': cloudy_periods
         }
     }
 

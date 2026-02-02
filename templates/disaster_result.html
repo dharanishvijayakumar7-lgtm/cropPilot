@@ -3,251 +3,407 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eligible Schemes - Smart Farmer Assistant</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Eligible Schemes - CropPilot</title>
     <style>
-        body { background: #f5f7f5; min-height: 100vh; }
-        .navbar {
-            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+        :root {
+            --primary: #2d8a4e;
+            --primary-dark: #1e6b3a;
+            --bg-main: #f8faf8;
+            --bg-card: #ffffff;
+            --bg-sidebar: #f5f8f5;
+            --text-primary: #2c3e50;
+            --text-secondary: #5a6c7d;
+            --text-muted: #8a9aa8;
+            --border: #e0e8e4;
+            --shadow: rgba(45, 138, 78, 0.08);
+            --success: #27ae60;
         }
-        .navbar-brand { color: white !important; font-weight: 700; }
-        .nav-link { color: rgba(255,255,255,0.9) !important; }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar .logo {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-links a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+
+        .nav-links a.logout { color: #ffcdd2; }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 30px 24px;
+        }
+
         .summary-card {
-            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: white;
             border-radius: 16px;
-            padding: 25px;
-            margin-bottom: 25px;
+            padding: 24px;
+            margin-bottom: 30px;
         }
-        .summary-card h5 { font-weight: 600; }
+
+        .summary-card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            opacity: 0.95;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
         .summary-item {
             background: rgba(255,255,255,0.15);
-            padding: 10px 15px;
+            padding: 12px;
             border-radius: 10px;
-            margin: 5px 0;
+            text-align: center;
         }
-        .scheme-card {
-            background: white;
-            border-radius: 16px;
-            padding: 25px;
+
+        .summary-item .label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            margin-bottom: 4px;
+        }
+
+        .summary-item .value {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            color: var(--text-primary);
             margin-bottom: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            border-top: 5px solid #4caf50;
         }
+
+        .scheme-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 20px var(--shadow);
+            border: 1px solid var(--border);
+            border-top: 4px solid var(--success);
+        }
+
         .scheme-name {
             font-size: 1.3rem;
             font-weight: 700;
-            color: #2d5016;
-            margin-bottom: 10px;
+            color: var(--primary);
+            margin-bottom: 8px;
         }
+
         .scheme-desc {
-            color: #666;
-            margin-bottom: 15px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            line-height: 1.6;
         }
+
         .scheme-amount {
+            display: inline-block;
             background: #e8f5e9;
-            color: #2d5016;
-            padding: 8px 15px;
+            color: var(--primary-dark);
+            padding: 8px 16px;
             border-radius: 20px;
             font-weight: 600;
-            display: inline-block;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
-        .section-title {
+
+        .section-header {
             font-weight: 600;
-            color: #333;
-            margin: 20px 0 10px;
+            color: var(--text-primary);
+            margin: 20px 0 12px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .reason-list, .doc-list, .step-list {
+
+        .reason-list {
             list-style: none;
             padding: 0;
-            margin: 0;
         }
+
         .reason-list li {
             background: #e3f2fd;
-            padding: 8px 12px;
+            padding: 10px 14px;
             border-radius: 8px;
-            margin: 5px 0;
+            margin-bottom: 8px;
             font-size: 0.9rem;
+            color: #1565c0;
         }
+
+        .doc-list {
+            list-style: none;
+            padding: 0;
+        }
+
         .doc-list li {
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
             gap: 10px;
+            font-size: 0.9rem;
         }
+
         .doc-list li:last-child { border: none; }
+
         .doc-checkbox {
             width: 20px;
             height: 20px;
-            border: 2px solid #4caf50;
-            border-radius: 4px;
+            accent-color: var(--primary);
             cursor: pointer;
         }
-        .step-list li {
-            padding: 12px;
-            background: #f8f9fa;
-            margin: 8px 0;
-            border-radius: 8px;
-            display: flex;
-            gap: 12px;
+
+        .step-list {
+            list-style: none;
+            padding: 0;
         }
+
+        .step-list li {
+            padding: 14px;
+            background: var(--bg-sidebar);
+            margin-bottom: 10px;
+            border-radius: 10px;
+            display: flex;
+            gap: 14px;
+            font-size: 0.9rem;
+        }
+
         .step-number {
-            background: #4caf50;
+            background: var(--primary);
             color: white;
-            width: 28px;
-            height: 28px;
+            width: 26px;
+            height: 26px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             flex-shrink: 0;
         }
+
         .contact-info {
-            background: #fff3e0;
-            padding: 15px;
+            background: #fff8e1;
+            padding: 16px;
             border-radius: 10px;
-            margin-top: 15px;
+            margin-top: 20px;
+            font-size: 0.9rem;
         }
+
         .contact-info a {
             color: #e65100;
             font-weight: 600;
             text-decoration: none;
         }
-        .btn-back {
-            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 10px;
-            font-weight: 600;
-            text-decoration: none;
+
+        .contact-info a:hover {
+            text-decoration: underline;
         }
-        .btn-back:hover { color: white; }
+
         .no-schemes {
-            background: white;
+            background: var(--bg-card);
             border-radius: 16px;
             padding: 50px;
             text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 20px var(--shadow);
+            border: 1px solid var(--border);
         }
-        .no-schemes h3 { color: #666; }
+
+        .no-schemes .icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .no-schemes h3 {
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .no-schemes p {
+            color: var(--text-muted);
+        }
+
+        .actions {
+            text-align: center;
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 28px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--bg-sidebar);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--shadow);
+        }
+
+        @media (max-width: 768px) {
+            .summary-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .nav-links a {
+                padding: 6px 10px;
+                font-size: 0.8rem;
+            }
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}">🌾✈️ CropPilot</a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
-                <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
-            </div>
+    <nav class="navbar">
+        <a href="{{ url_for('dashboard') }}" class="logo">🌾 CropPilot</a>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('risk_map') }}">Risk Map</a>
+            <a href="{{ url_for('inventory') }}">Farm Logbook</a>
+            <a href="{{ url_for('disaster_form') }}" class="active">Disaster Help</a>
+            <a href="{{ url_for('logout') }}" class="logout">Logout</a>
         </div>
     </nav>
 
-    <div class="container py-4">
-        <!-- Summary Card -->
+    <div class="container">
         <div class="summary-card">
-            <h5>📋 Your Disaster Report Summary</h5>
-            <div class="row mt-3">
-                <div class="col-md-3 col-6">
-                    <div class="summary-item">
-                        <small>Affected Crop</small>
-                        <div><strong>{{ crop }}</strong></div>
-                    </div>
+            <h2>📋 Your Disaster Report</h2>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="label">Affected Crop</div>
+                    <div class="value">{{ crop }}</div>
                 </div>
-                <div class="col-md-3 col-6">
-                    <div class="summary-item">
-                        <small>Disaster Type</small>
-                        <div><strong>{{ disaster_info.icon }} {{ disaster_info.name }}</strong></div>
-                    </div>
+                <div class="summary-item">
+                    <div class="label">Disaster Type</div>
+                    <div class="value">{{ disaster_info.icon }} {{ disaster_info.name }}</div>
                 </div>
-                <div class="col-md-3 col-6">
-                    <div class="summary-item">
-                        <small>Land Size</small>
-                        <div><strong>{{ land_size }} hectares</strong></div>
-                    </div>
+                <div class="summary-item">
+                    <div class="label">Land Size</div>
+                    <div class="value">{{ land_size }} ha</div>
                 </div>
-                <div class="col-md-3 col-6">
-                    <div class="summary-item">
-                        <small>Insurance</small>
-                        <div><strong>{{ 'Yes ✓' if has_insurance else 'No ✗' }}</strong></div>
-                    </div>
+                <div class="summary-item">
+                    <div class="label">Insurance</div>
+                    <div class="value">{{ 'Yes ✓' if has_insurance else 'No' }}</div>
                 </div>
             </div>
         </div>
 
-        <!-- Eligible Schemes -->
-        <h4 class="mb-3">✅ Eligible Government Schemes ({{ schemes|length }} found)</h4>
+        <h2 class="section-title">✅ Eligible Schemes ({{ schemes|length }} found)</h2>
 
         {% if schemes %}
             {% for scheme in schemes %}
-                <div class="scheme-card">
-                    <div class="scheme-name">{{ scheme.name }}</div>
-                    <p class="scheme-desc">{{ scheme.description }}</p>
-                    
-                    <div class="scheme-amount">
-                        💰 Up to ₹{{ "{:,}".format(scheme.max_amount) }} compensation
-                    </div>
+            <div class="scheme-card">
+                <div class="scheme-name">{{ scheme.name }}</div>
+                <p class="scheme-desc">{{ scheme.description }}</p>
+                
+                <div class="scheme-amount">💰 Up to ₹{{ "{:,}".format(scheme.max_amount) }}</div>
 
-                    <!-- Eligibility Reasons -->
-                    <div class="section-title">✅ Why You're Eligible</div>
-                    <ul class="reason-list">
-                        {% for reason in scheme.reasons %}
-                            <li>{{ reason }}</li>
-                        {% endfor %}
-                    </ul>
+                <div class="section-header">✅ Why You're Eligible</div>
+                <ul class="reason-list">
+                    {% for reason in scheme.reasons %}
+                        <li>{{ reason }}</li>
+                    {% endfor %}
+                </ul>
 
-                    <!-- Documents Checklist -->
-                    <div class="section-title">📄 Documents Required (Checklist)</div>
-                    <ul class="doc-list">
-                        {% for doc in scheme.documents %}
-                            <li>
-                                <input type="checkbox" class="doc-checkbox">
-                                <span>{{ doc }}</span>
-                            </li>
-                        {% endfor %}
-                    </ul>
+                <div class="section-header">📄 Documents Required</div>
+                <ul class="doc-list">
+                    {% for doc in scheme.documents %}
+                        <li>
+                            <input type="checkbox" class="doc-checkbox" id="doc_{{ loop.index }}">
+                            <label for="doc_{{ loop.index }}">{{ doc }}</label>
+                        </li>
+                    {% endfor %}
+                </ul>
 
-                    <!-- Application Steps -->
-                    <div class="section-title">📝 How to Apply</div>
-                    <ul class="step-list">
-                        {% for step in scheme.steps %}
-                            <li>
-                                <span class="step-number">{{ loop.index }}</span>
-                                <span>{{ step }}</span>
-                            </li>
-                        {% endfor %}
-                    </ul>
+                <div class="section-header">📝 How to Apply</div>
+                <ul class="step-list">
+                    {% for step in scheme.steps %}
+                        <li>
+                            <span class="step-number">{{ loop.index }}</span>
+                            <span>{{ step }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
 
-                    <!-- Contact Info -->
-                    <div class="contact-info">
-                        <strong>📞 Helpline:</strong> {{ scheme.helpline }} &nbsp;|&nbsp;
-                        <strong>🌐 Website:</strong> <a href="{{ scheme.website }}" target="_blank">{{ scheme.website }}</a>
-                    </div>
+                <div class="contact-info">
+                    📞 <strong>Helpline:</strong> {{ scheme.helpline }} &nbsp;|&nbsp;
+                    🌐 <strong>Website:</strong> <a href="{{ scheme.website }}" target="_blank">{{ scheme.website }}</a>
                 </div>
+            </div>
             {% endfor %}
         {% else %}
             <div class="no-schemes">
-                <h3>😔 No exact scheme matches found</h3>
-                <p class="text-muted">But don't worry! Contact your local Block Development Office or Krishi Bhawan for assistance.</p>
-                <p><strong>📞 Kisan Call Center:</strong> 1800-180-1551 (Toll Free)</p>
+                <div class="icon">😔</div>
+                <h3>No exact scheme matches found</h3>
+                <p>Contact your local Block Development Office or Krishi Bhawan for assistance.</p>
+                <p style="margin-top: 12px;"><strong>📞 Kisan Call Center:</strong> 1800-180-1551 (Toll Free)</p>
             </div>
         {% endif %}
 
-        <div class="text-center mt-4">
-            <a href="{{ url_for('disaster_form') }}" class="btn-back me-2">🔄 New Search</a>
-            <a href="{{ url_for('dashboard') }}" class="btn-back" style="background: #6c757d;">← Dashboard</a>
+        <div class="actions">
+            <a href="{{ url_for('disaster_form') }}" class="btn btn-primary">🔄 New Search</a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Dashboard</a>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Save checkbox states to localStorage
         document.querySelectorAll('.doc-checkbox').forEach((checkbox, index) => {
