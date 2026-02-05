@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - CropPilot</title>
+    <title>{{ t('dashboard') }} - {{ t('app_name') }}</title>
     <style>
         :root {
             --primary: #2d8a4e;
@@ -45,6 +45,7 @@
         .nav-links {
             display: flex;
             gap: 8px;
+            align-items: center;
         }
 
         .nav-links a {
@@ -63,6 +64,23 @@
         }
 
         .nav-links a.logout { color: #ffcdd2; }
+
+        /* Language Dropdown in Navbar */
+        .lang-select {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+
+        .lang-select option {
+            color: #333;
+            background: #fff;
+        }
 
         .welcome-section {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
@@ -255,19 +273,25 @@
 </head>
 <body>
     <nav class="navbar">
-        <a href="{{ url_for('dashboard') }}" class="logo">🌾 CropPilot</a>
+        <a href="{{ url_for('dashboard') }}" class="logo">🌾 {{ t('app_name') }}</a>
         <div class="nav-links">
-            <a href="{{ url_for('dashboard') }}" class="active">Dashboard</a>
-            <a href="{{ url_for('risk_map') }}">Risk Map</a>
-            <a href="{{ url_for('inventory') }}">Farm Logbook</a>
-            <a href="{{ url_for('disaster_form') }}">Disaster Help</a>
-            <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+            <a href="{{ url_for('dashboard') }}" class="active">{{ t('dashboard') }}</a>
+            <a href="{{ url_for('risk_map') }}">{{ t('risk_map') }}</a>
+            <a href="{{ url_for('voice_bot') }}">{{ t('voice_bot') }}</a>
+            <a href="{{ url_for('disaster_form') }}">{{ t('disaster_help') }}</a>
+            <!-- Language Selector -->
+            <select class="lang-select" onchange="window.location.href='/set-language/' + this.value">
+                {% for code, name in available_languages.items() %}
+                    <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+            <a href="{{ url_for('logout') }}" class="logout">{{ t('logout') }}</a>
         </div>
     </nav>
 
     <div class="welcome-section">
-        <h1>नमस्ते, {{ session.user_name }}! 🙏</h1>
-        <p>Welcome to your Smart Farmer Dashboard</p>
+        <h1>{{ t('namaste') }}, {{ session.user_name }}! 🙏</h1>
+        <p>{{ t('welcome_to_dashboard') }}</p>
         <div class="user-badge">📍 {{ session.user_district }}, {{ session.user_state }}</div>
     </div>
 
@@ -283,53 +307,53 @@
         <div class="features-grid">
             <div class="feature-card">
                 <div class="feature-icon">🗺️</div>
-                <h3>Village Risk Map</h3>
-                <p>Check weather-based risk assessment for any village with live forecasts.</p>
+                <h3>{{ t('village_risk_map') }}</h3>
+                <p>{{ t('check_weather_risk') }}</p>
                 <ul class="feature-list">
-                    <li>Interactive map interface</li>
-                    <li>5-day weather forecast</li>
-                    <li>Drought & flood alerts</li>
-                    <li>Village-level details</li>
+                    <li>{{ t('interactive_map') }}</li>
+                    <li>{{ t('five_day_forecast') }}</li>
+                    <li>{{ t('drought_flood_alerts') }}</li>
+                    <li>{{ t('village_level_details') }}</li>
                 </ul>
-                <a href="{{ url_for('risk_map') }}" class="btn btn-primary">Open Risk Map →</a>
+                <a href="{{ url_for('risk_map') }}" class="btn btn-primary">{{ t('open_risk_map') }} →</a>
             </div>
 
             <div class="feature-card">
-                <div class="feature-icon">📒</div>
-                <h3>Farm Logbook</h3>
-                <p>Track your farming activities, expenses, and earnings in one place.</p>
+                <div class="feature-icon">🎤</div>
+                <h3>{{ t('voice_bot') }}</h3>
+                <p>{{ t('voice_bot_subtitle') }}</p>
                 <ul class="feature-list">
-                    <li>Crop-wise tracking</li>
-                    <li>Expense & income records</li>
-                    <li>Profit/Loss calculation</li>
-                    <li>Harvest date reminders</li>
+                    <li>{{ t('voice_tip_1') }}</li>
+                    <li>{{ t('voice_tip_2') }}</li>
+                    <li>{{ t('voice_tip_3') }}</li>
+                    <li>{{ t('voice_tip_4') }}</li>
                 </ul>
-                <a href="{{ url_for('inventory') }}" class="btn btn-info">Open Logbook →</a>
+                <a href="{{ url_for('voice_bot') }}" class="btn btn-info">{{ t('voice_bot') }} →</a>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">🆘</div>
-                <h3>Disaster Help</h3>
-                <p>Find government schemes you're eligible for after crop damage.</p>
+                <h3>{{ t('disaster_help') }}</h3>
+                <p>{{ t('find_govt_schemes') }}</p>
                 <ul class="feature-list">
-                    <li>PMFBY insurance claims</li>
-                    <li>State disaster relief</li>
-                    <li>Document checklists</li>
-                    <li>Step-by-step guidance</li>
+                    <li>{{ t('pmfby_claims') }}</li>
+                    <li>{{ t('state_disaster_relief') }}</li>
+                    <li>{{ t('document_checklists') }}</li>
+                    <li>{{ t('step_by_step_guidance') }}</li>
                 </ul>
-                <a href="{{ url_for('disaster_form') }}" class="btn btn-danger">Find Schemes →</a>
+                <a href="{{ url_for('disaster_form') }}" class="btn btn-danger">{{ t('find_schemes') }} →</a>
             </div>
         </div>
 
         <div class="helplines">
-            <h3>📞 Emergency Helplines</h3>
+            <h3>📞 {{ t('emergency_helplines') }}</h3>
             <div class="helplines-grid">
                 <div class="helpline-item">
-                    <div class="name">Kisan Call Center</div>
+                    <div class="name">{{ t('kisan_call_center') }}</div>
                     <div class="number">1800-180-1551</div>
                 </div>
                 <div class="helpline-item">
-                    <div class="name">Disaster Helpline</div>
+                    <div class="name">{{ t('disaster_helpline') }}</div>
                     <div class="number">1070</div>
                 </div>
                 <div class="helpline-item">

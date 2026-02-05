@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - CropPilot</title>
+    <title>{{ t('login') }} - {{ t('app_name') }}</title>
     <style>
         :root {
             --primary: #2d8a4e;
@@ -169,14 +169,45 @@
         .register-link a:hover {
             text-decoration: underline;
         }
+
+        /* Language Selector */
+        .language-selector {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .lang-dropdown {
+            background: rgba(255,255,255,0.95);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .lang-dropdown:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(45, 138, 78, 0.2);
+        }
     </style>
 </head>
 <body>
+    <!-- Language Selector -->
+    <div class="language-selector">
+        <select class="lang-dropdown" onchange="window.location.href='/set-language/' + this.value">
+            {% for code, name in available_languages.items() %}
+                <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
     <div class="login-card">
         <div class="logo">
             <div class="icon">🌾</div>
-            <h1>CropPilot</h1>
-            <p>Farmer Decision Support System</p>
+            <h1>{{ t('app_name') }}</h1>
+            <p>{{ t('farmer_decision_support') }}</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -188,29 +219,29 @@
         {% endwith %}
 
         <div class="welcome-box">
-            🙏 <strong>Welcome, Farmer!</strong><br>
-            <small>Please login to continue</small>
+            🙏 <strong>{{ t('welcome_farmer') }}</strong><br>
+            <small>{{ t('please_login') }}</small>
         </div>
 
         <form method="POST" action="{{ url_for('login') }}">
             <div class="form-group">
-                <label>📱 Phone Number</label>
+                <label>📱 {{ t('phone_number') }}</label>
                 <input type="tel" class="form-control" name="phone" 
-                       placeholder="Enter 10-digit phone number" 
+                       placeholder="{{ t('enter_phone') }}" 
                        pattern="[0-9]{10}" maxlength="10" required>
             </div>
             
             <div class="form-group">
-                <label>🔒 Password</label>
+                <label>🔒 {{ t('password') }}</label>
                 <input type="password" class="form-control" name="password" 
-                       placeholder="Enter your password" required>
+                       placeholder="{{ t('enter_password') }}" required>
             </div>
             
-            <button type="submit" class="btn">Login →</button>
+            <button type="submit" class="btn">{{ t('login') }} →</button>
         </form>
 
         <div class="register-link">
-            New farmer? <a href="{{ url_for('register') }}">Register here</a>
+            {{ t('new_farmer') }} <a href="{{ url_for('register') }}">{{ t('register_here') }}</a>
         </div>
     </div>
 </body>

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Disaster Help - CropPilot</title>
+    <title>{{ t('disaster_help') }} - {{ t('app_name') }}</title>
     <style>
         :root {
             --primary: #2d8a4e;
@@ -17,6 +17,8 @@
             --border: #e0e8e4;
             --shadow: rgba(45, 138, 78, 0.08);
             --danger: #e74c3c;
+            --warning: #f39c12;
+            --success: #27ae60;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -46,6 +48,7 @@
         .nav-links {
             display: flex;
             gap: 8px;
+            align-items: center;
         }
 
         .nav-links a {
@@ -65,10 +68,75 @@
 
         .nav-links a.logout { color: #ffcdd2; }
 
+        .lang-select {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+
+        .lang-select option {
+            color: #333;
+            background: #fff;
+        }
+
         .container {
-            max-width: 650px;
+            max-width: 750px;
             margin: 0 auto;
-            padding: 40px 24px;
+            padding: 30px 24px;
+        }
+
+        /* Progress Steps */
+        .progress-steps {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            gap: 0;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            color: var(--text-muted);
+        }
+
+        .step-circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .step.active .step-circle {
+            background: var(--primary);
+            color: white;
+        }
+
+        .step.completed .step-circle {
+            background: var(--success);
+            color: white;
+        }
+
+        .step-line {
+            width: 60px;
+            height: 3px;
+            background: var(--border);
+            margin: 0 8px;
+        }
+
+        .step.completed + .step-line,
+        .step-line.completed {
+            background: var(--success);
         }
 
         .form-card {
@@ -85,8 +153,14 @@
         }
 
         .form-header .icon {
-            font-size: 3rem;
+            font-size: 3.5rem;
             margin-bottom: 12px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
         }
 
         .form-header h1 {
@@ -100,14 +174,29 @@
             font-size: 0.95rem;
         }
 
+        .urgency-banner {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .urgency-banner .icon { font-size: 1.5rem; }
+        .urgency-banner .text { font-size: 0.9rem; line-height: 1.5; }
+        .urgency-banner strong { display: block; font-size: 1rem; }
+
         .info-box {
-            background: #fff8e1;
-            border-left: 4px solid #ffc107;
+            background: #e8f5e9;
+            border-left: 4px solid var(--primary);
             padding: 14px 16px;
             border-radius: 8px;
             margin-bottom: 24px;
             font-size: 0.9rem;
-            color: #8d6e00;
+            color: #2e7d32;
         }
 
         .alert {
@@ -123,8 +212,42 @@
             color: #c62828;
         }
 
-        .form-group {
+        /* Form Sections */
+        .form-section {
+            margin-bottom: 28px;
+            padding-bottom: 24px;
+            border-bottom: 1px dashed var(--border);
+        }
+
+        .form-section:last-of-type {
+            border-bottom: none;
             margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title .num {
+            background: var(--primary);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
         }
 
         .form-group label {
@@ -163,29 +286,127 @@
             gap: 16px;
         }
 
+        .row-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
         .hint {
             font-size: 0.8rem;
             color: var(--text-muted);
             margin-top: 6px;
         }
 
+        /* Damage Severity Selector */
+        .severity-selector {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .severity-option {
+            position: relative;
+        }
+
+        .severity-option input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .severity-label {
+            display: block;
+            text-align: center;
+            padding: 14px 8px;
+            border-radius: 10px;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            transition: all 0.3s;
+            background: var(--bg-sidebar);
+        }
+
+        .severity-label .icon { font-size: 1.5rem; display: block; margin-bottom: 6px; }
+        .severity-label .text { font-size: 0.75rem; font-weight: 500; }
+
+        .severity-option input:checked + .severity-label {
+            border-color: var(--primary);
+            background: #e8f5e9;
+        }
+
+        .severity-option.low input:checked + .severity-label { border-color: #4caf50; background: #e8f5e9; }
+        .severity-option.moderate input:checked + .severity-label { border-color: #ff9800; background: #fff3e0; }
+        .severity-option.high input:checked + .severity-label { border-color: #f44336; background: #ffebee; }
+        .severity-option.total input:checked + .severity-label { border-color: #9c27b0; background: #f3e5f5; }
+
+        /* Disaster Type Cards */
+        .disaster-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .disaster-option {
+            position: relative;
+        }
+
+        .disaster-option input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .disaster-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 16px 8px;
+            border-radius: 12px;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            transition: all 0.3s;
+            background: var(--bg-sidebar);
+            min-height: 90px;
+        }
+
+        .disaster-label .icon { font-size: 1.8rem; margin-bottom: 6px; }
+        .disaster-label .text { font-size: 0.7rem; font-weight: 500; text-align: center; }
+
+        .disaster-option input:checked + .disaster-label {
+            border-color: var(--danger);
+            background: #ffebee;
+            transform: scale(1.02);
+        }
+
+        /* Date Picker */
+        input[type="date"].form-control {
+            cursor: pointer;
+        }
+
         .btn {
             width: 100%;
-            padding: 14px;
+            padding: 16px;
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: white;
             border: none;
-            border-radius: 10px;
-            font-size: 1rem;
+            border-radius: 12px;
+            font-size: 1.1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
 
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(45, 138, 78, 0.25);
+            box-shadow: 0 8px 25px rgba(45, 138, 78, 0.3);
         }
+
+        .btn .arrow { font-size: 1.2rem; }
 
         .back-link {
             text-align: center;
@@ -202,40 +423,94 @@
             color: var(--primary);
         }
 
-        @media (max-width: 600px) {
-            .row {
-                grid-template-columns: 1fr;
-            }
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
 
-            .nav-links a {
-                padding: 6px 10px;
-                font-size: 0.8rem;
-            }
+        .quick-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg-sidebar);
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .quick-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .quick-btn .icon { display: block; font-size: 1.3rem; margin-bottom: 4px; }
+
+        @media (max-width: 600px) {
+            .row, .row-3 { grid-template-columns: 1fr; }
+            .severity-selector { grid-template-columns: repeat(2, 1fr); }
+            .disaster-grid { grid-template-columns: repeat(2, 1fr); }
+            .nav-links a { padding: 6px 10px; font-size: 0.8rem; }
+            .quick-actions { flex-direction: column; }
         }
     </style>
 </head>
 <body>
     <nav class="navbar">
-        <a href="{{ url_for('dashboard') }}" class="logo">🌾 CropPilot</a>
+        <a href="{{ url_for('dashboard') }}" class="logo">🌾 {{ t('app_name') }}</a>
         <div class="nav-links">
-            <a href="{{ url_for('dashboard') }}">Dashboard</a>
-            <a href="{{ url_for('risk_map') }}">Risk Map</a>
-            <a href="{{ url_for('inventory') }}">Farm Logbook</a>
-            <a href="{{ url_for('disaster_form') }}" class="active">Disaster Help</a>
-            <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+            <a href="{{ url_for('dashboard') }}">{{ t('dashboard') }}</a>
+            <a href="{{ url_for('risk_map') }}">{{ t('risk_map') }}</a>
+            <a href="{{ url_for('voice_bot') }}">{{ t('voice_bot') }}</a>
+            <a href="{{ url_for('disaster_form') }}" class="active">{{ t('disaster_help') }}</a>
+            <select class="lang-select" onchange="window.location.href='/set-language/' + this.value">
+                {% for code, name in available_languages.items() %}
+                    <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+            <a href="{{ url_for('logout') }}" class="logout">{{ t('logout') }}</a>
         </div>
     </nav>
 
     <div class="container">
+        <!-- Progress Steps -->
+        <div class="progress-steps">
+            <div class="step active">
+                <div class="step-circle">1</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step">
+                <div class="step-circle">2</div>
+            </div>
+            <div class="step-line"></div>
+            <div class="step">
+                <div class="step-circle">3</div>
+            </div>
+        </div>
+
         <div class="form-card">
             <div class="form-header">
                 <div class="icon">🆘</div>
-                <h1>Disaster Scheme Navigator</h1>
-                <p>Find government schemes you're eligible for</p>
+                <h1>{{ t('disaster_scheme_navigator') }}</h1>
+                <p>{{ t('find_eligible_schemes') }}</p>
+            </div>
+
+            <div class="urgency-banner">
+                <div class="icon">⏰</div>
+                <div class="text">
+                    <strong>{{ t('report_within_48hrs') }}</strong>
+                    {{ t('report_urgency_message') }}
+                </div>
             </div>
 
             <div class="info-box">
-                ⚠️ <strong>Important:</strong> Document your crop damage with photos and report to local authorities within 48-72 hours for faster claim processing.
+                ✅ {{ t('document_damage_notice') }}
             </div>
 
             {% with messages = get_flashed_messages(with_categories=true) %}
@@ -247,49 +522,170 @@
             {% endwith %}
 
             <form method="POST" action="{{ url_for('disaster_result') }}">
-                <div class="form-group">
-                    <label for="crop">🌾 Affected Crop</label>
-                    <select class="form-control" id="crop" name="crop" required>
-                        <option value="">Select the crop affected</option>
-                        {% for crop in crops %}
-                            <option value="{{ crop }}">{{ crop }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="disaster_type">⚠️ Type of Disaster</label>
-                    <select class="form-control" id="disaster_type" name="disaster_type" required>
-                        <option value="">Select disaster type</option>
-                        {% for disaster in disaster_types %}
-                            <option value="{{ disaster.id }}">{{ disaster.icon }} {{ disaster.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="row">
-                    <div class="form-group">
-                        <label for="land_size">📐 Land Size (hectares)</label>
-                        <input type="number" class="form-control" id="land_size" name="land_size" 
-                               placeholder="e.g., 2.5" step="0.1" min="0.1" required>
-                        <p class="hint">1 hectare = 2.47 acres</p>
+                <!-- Section 1: Disaster Details -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <span class="num">1</span>
+                        {{ t('disaster_details') }}
                     </div>
+
                     <div class="form-group">
-                        <label for="has_insurance">🛡️ Crop Insurance?</label>
-                        <select class="form-control" id="has_insurance" name="has_insurance" required>
-                            <option value="no">No insurance</option>
-                            <option value="yes">Yes, I have PMFBY/other</option>
-                        </select>
+                        <label>⚠️ {{ t('disaster_type') }}</label>
+                        <div class="disaster-grid">
+                            {% for disaster in disaster_types %}
+                            <div class="disaster-option">
+                                <input type="radio" name="disaster_type" id="disaster_{{ disaster.id }}" value="{{ disaster.id }}" required>
+                                <label class="disaster-label" for="disaster_{{ disaster.id }}">
+                                    <span class="icon">{{ disaster.icon }}</span>
+                                    <span class="text">{{ disaster.name }}</span>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="disaster_date">📅 {{ t('disaster_date') }}</label>
+                            <input type="date" class="form-control" id="disaster_date" name="disaster_date" 
+                                   max="{{ today }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="state">📍 {{ t('state') }}</label>
+                            <select class="form-control" id="state" name="state" required>
+                                <option value="">{{ t('select_state') }}</option>
+                                {% for state in states %}
+                                    <option value="{{ state }}">{{ state }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
                 </div>
 
-                <button type="submit" class="btn">🔍 Find Eligible Schemes</button>
+                <!-- Section 2: Crop & Land Details -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <span class="num">2</span>
+                        {{ t('crop_land_details') }}
+                    </div>
+
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="crop">🌾 {{ t('affected_crop') }}</label>
+                            <select class="form-control" id="crop" name="crop" required>
+                                <option value="">{{ t('select_crop') }}</option>
+                                {% for crop in crops %}
+                                    <option value="{{ crop }}">{{ crop }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="land_size">📐 {{ t('land_size') }}</label>
+                            <input type="number" class="form-control" id="land_size" name="land_size" 
+                                   placeholder="e.g., 2.5" step="0.1" min="0.1" required>
+                            <p class="hint">{{ t('hectare_hint') }}</p>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>📊 {{ t('damage_severity') }}</label>
+                        <div class="severity-selector">
+                            <div class="severity-option low">
+                                <input type="radio" name="damage_percent" id="damage_25" value="25" required>
+                                <label class="severity-label" for="damage_25">
+                                    <span class="icon">🟢</span>
+                                    <span class="text">{{ t('damage_low') }}<br>&lt;33%</span>
+                                </label>
+                            </div>
+                            <div class="severity-option moderate">
+                                <input type="radio" name="damage_percent" id="damage_50" value="50">
+                                <label class="severity-label" for="damage_50">
+                                    <span class="icon">🟡</span>
+                                    <span class="text">{{ t('damage_moderate') }}<br>33-50%</span>
+                                </label>
+                            </div>
+                            <div class="severity-option high">
+                                <input type="radio" name="damage_percent" id="damage_75" value="75">
+                                <label class="severity-label" for="damage_75">
+                                    <span class="icon">🟠</span>
+                                    <span class="text">{{ t('damage_high') }}<br>50-75%</span>
+                                </label>
+                            </div>
+                            <div class="severity-option total">
+                                <input type="radio" name="damage_percent" id="damage_100" value="100">
+                                <label class="severity-label" for="damage_100">
+                                    <span class="icon">🔴</span>
+                                    <span class="text">{{ t('damage_total') }}<br>&gt;75%</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Insurance & Documents -->
+                <div class="form-section">
+                    <div class="section-title">
+                        <span class="num">3</span>
+                        {{ t('insurance_documents') }}
+                    </div>
+
+                    <div class="row">
+                        <div class="form-group">
+                            <label for="has_insurance">🛡️ {{ t('crop_insurance') }}</label>
+                            <select class="form-control" id="has_insurance" name="has_insurance" required>
+                                <option value="no">{{ t('no_insurance') }}</option>
+                                <option value="yes">{{ t('yes_pmfby') }}</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="has_kcc">💳 {{ t('kisan_credit_card') }}</label>
+                            <select class="form-control" id="has_kcc" name="has_kcc" required>
+                                <option value="no">{{ t('no') }}</option>
+                                <option value="yes">{{ t('yes') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn">
+                    🔍 {{ t('find_eligible') }}
+                    <span class="arrow">→</span>
+                </button>
             </form>
 
+            <div class="quick-actions">
+                <a href="tel:1800-180-1551" class="quick-btn">
+                    <span class="icon">📞</span>
+                    {{ t('kisan_helpline') }}
+                </a>
+                <a href="{{ url_for('voice_bot') }}" class="quick-btn">
+                    <span class="icon">🎙️</span>
+                    {{ t('ask_voice_bot') }}
+                </a>
+            </div>
+
             <div class="back-link">
-                <a href="{{ url_for('dashboard') }}">← Back to Dashboard</a>
+                <a href="{{ url_for('dashboard') }}">← {{ t('back_to_dashboard') }}</a>
             </div>
         </div>
     </div>
+
+    <script>
+        // Set max date to today
+        document.getElementById('disaster_date').max = new Date().toISOString().split('T')[0];
+        
+        // Highlight urgency if date is older than 48 hours
+        document.getElementById('disaster_date').addEventListener('change', function() {
+            const selectedDate = new Date(this.value);
+            const now = new Date();
+            const hoursDiff = (now - selectedDate) / (1000 * 60 * 60);
+            
+            if (hoursDiff > 48) {
+                this.style.borderColor = '#f39c12';
+            } else {
+                this.style.borderColor = '';
+            }
+        });
+    </script>
 </body>
 </html>

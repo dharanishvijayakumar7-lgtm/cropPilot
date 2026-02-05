@@ -1,6 +1,7 @@
 """
 CropPilot - Farmer Decision Support System
 A Flask web application with login, weather risk map, farm logbook, and disaster scheme navigator.
+Supports multilingual interface for Indian farmers.
 """
 
 import os
@@ -8,7 +9,7 @@ import json
 import sqlite3
 import requests
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, g
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 from functools import wraps
@@ -19,6 +20,66 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
+
+# ==================== MULTILINGUAL SUPPORT ====================
+
+# Load translations from JSON file
+def load_translations():
+    """Load translations from translations.json file."""
+    try:
+        with open('translations.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("⚠️ translations.json not found, using default English")
+        return {"languages": {"en": "English"}, "translations": {}}
+
+# Global translations data
+TRANSLATIONS_DATA = load_translations()
+
+def get_current_language():
+    """Get the current language from session, default to English."""
+    return session.get('language', 'en')
+
+def t(key):
+    """
+    Translation function - returns translated text for the given key.
+    Falls back to English if translation not found.
+    """
+    lang = get_current_language()
+    translations = TRANSLATIONS_DATA.get('translations', {})
+    
+    if key in translations:
+        # Get translation for current language, fallback to English
+        return translations[key].get(lang, translations[key].get('en', key))
+    return key
+
+def get_available_languages():
+    """Get list of available languages."""
+    return TRANSLATIONS_DATA.get('languages', {'en': 'English'})
+
+# Make translation function available in all templates
+@app.context_processor
+def inject_translation_helpers():
+    """Inject translation function and language data into all templates."""
+    return {
+        't': t,
+        'current_language': get_current_language(),
+        'available_languages': get_available_languages()
+    }
+
+# Route to change language
+@app.route('/set-language/<lang_code>')
+def set_language(lang_code):
+    """Set the user's preferred language."""
+    available = get_available_languages()
+    if lang_code in available:
+        session['language'] = lang_code
+        flash(f'Language changed to {available[lang_code]}', 'success')
+    else:
+        flash('Language not supported', 'warning')
+    
+    # Redirect back to the previous page or dashboard
+    return redirect(request.referrer or url_for('dashboard'))
 
 # OpenWeather API configuration
 # Get your free API key from: https://openweathermap.org/api
@@ -112,8 +173,8 @@ def load_schemes_data():
     except FileNotFoundError:
         return {"schemes": [], "disaster_types": [], "crops": [], "states": []}
 
-def find_eligible_schemes(crop, disaster_type, land_size, has_insurance):
-    """Find eligible government schemes based on farmer inputs."""
+def find_eligible_schemes(crop, disaster_type, land_size, has_insurance, damage_percent=50, has_kcc=False):
+    """Find eligible government schemes based on farmer inputs with priority scoring."""
     schemes_data = load_schemes_data()
     eligible_schemes = []
     
@@ -137,27 +198,58 @@ def find_eligible_schemes(crop, disaster_type, land_size, has_insurance):
         if scheme.get('requires_insurance', False) and not has_insurance:
             continue
         
+        # Calculate priority score (higher = better match)
+        priority_score = 0
+        
         # Build eligibility reasons
         reasons = []
-        reasons.append(f"Your crop ({crop}) is covered under this scheme")
-        reasons.append(f"Disaster type ({disaster_type.replace('_', ' ').title()}) is eligible")
-        reasons.append(f"Your land size ({land_size} hectares) meets the criteria")
+        reasons.append(f"✓ Your crop ({crop}) is covered under this scheme")
+        reasons.append(f"✓ Disaster type ({disaster_type.replace('_', ' ').title()}) is eligible")
+        reasons.append(f"✓ Your land size ({land_size} hectares) meets the criteria")
+        
         if has_insurance and scheme.get('requires_insurance'):
-            reasons.append("You have crop insurance which qualifies for claims")
+            reasons.append("✓ You have crop insurance which qualifies for claims")
+            priority_score += 20
+        
         if land_size <= 2:
-            reasons.append("Small/marginal farmer benefits may apply")
+            reasons.append("✓ Small/marginal farmer benefits may apply")
+            priority_score += 15
+        
+        # Damage-based prioritization
+        if damage_percent >= 75:
+            priority_score += 25
+            reasons.append("✓ Severe damage (>75%) qualifies for maximum compensation")
+        elif damage_percent >= 50:
+            priority_score += 15
+            reasons.append("✓ High damage (50-75%) eligible for substantial relief")
+        
+        # KCC holder benefits
+        if has_kcc and 'kcc' in scheme.get('id', '').lower():
+            priority_score += 30
+            reasons.append("✓ KCC holder - eligible for loan restructuring benefits")
+        
+        # Estimate compensation based on damage
+        max_amount = scheme.get('max_amount', 0)
+        comp_percent = scheme.get('compensation_percent', 100)
+        estimated_amount = int((max_amount * min(damage_percent, comp_percent)) / 100)
         
         eligible_schemes.append({
             'id': scheme.get('id'),
             'name': scheme.get('name'),
             'description': scheme.get('description'),
-            'max_amount': scheme.get('max_amount', 'Varies'),
+            'max_amount': max_amount,
+            'estimated_amount': estimated_amount,
+            'compensation_percent': comp_percent,
             'documents': scheme.get('documents_required', []),
             'steps': scheme.get('application_steps', []),
             'helpline': scheme.get('helpline', 'N/A'),
             'website': scheme.get('website', '#'),
-            'reasons': reasons
+            'reasons': reasons,
+            'priority_score': priority_score
         })
+    
+    # Sort by priority score (highest first)
+    eligible_schemes.sort(key=lambda x: x.get('priority_score', 0), reverse=True)
     
     return eligible_schemes
 
@@ -223,6 +315,50 @@ def get_weather_forecast_data(lat, lon):
         cloudy_count = sum(1 for w in weather_conditions if w in ['clouds', 'mist', 'fog', 'haze'])
         clear_count = sum(1 for w in weather_conditions if w in ['clear', 'sun'])
         
+        # Extract daily forecast for 5 days (API gives 3-hour intervals, so ~8 per day)
+        daily_forecasts = []
+        forecast_list = data.get('list', [])
+        
+        # Group forecasts by day and get one representative entry per day
+        from collections import defaultdict
+        daily_data = defaultdict(list)
+        
+        for item in forecast_list:
+            # Get the date part only
+            dt_txt = item.get('dt_txt', '')
+            if dt_txt:
+                date_str = dt_txt.split(' ')[0]
+                daily_data[date_str].append(item)
+        
+        # Get first 5 days of forecasts
+        sorted_dates = sorted(daily_data.keys())[:5]
+        for date_str in sorted_dates:
+            day_items = daily_data[date_str]
+            # Use midday forecast if available, otherwise first
+            midday_item = None
+            for item in day_items:
+                if '12:00:00' in item.get('dt_txt', '') or '15:00:00' in item.get('dt_txt', ''):
+                    midday_item = item
+                    break
+            if not midday_item:
+                midday_item = day_items[0]
+            
+            # Calculate day's rain
+            day_rain = sum(it.get('rain', {}).get('3h', 0) for it in day_items)
+            
+            # Get weather condition
+            weather_main = 'clear'
+            if midday_item.get('weather'):
+                weather_main = midday_item['weather'][0].get('main', 'Clear').lower()
+            
+            daily_forecasts.append({
+                'date': date_str,
+                'temp': round(midday_item['main']['temp']),
+                'weather': weather_main,
+                'rain': round(day_rain, 1),
+                'humidity': midday_item['main'].get('humidity', 50)
+            })
+        
         return {
             'success': True,
             'total_rainfall': round(total_rainfall, 2),
@@ -234,7 +370,8 @@ def get_weather_forecast_data(lat, lon):
             'rainy_periods': rainy_count,
             'cloudy_periods': cloudy_count,
             'clear_periods': clear_count,
-            'total_periods': len(weather_conditions)
+            'total_periods': len(weather_conditions),
+            'daily_forecast': daily_forecasts
         }
         
     except requests.exceptions.Timeout:
@@ -346,7 +483,8 @@ def analyze_village_risk(lat, lon):
             'avg_clouds': avg_clouds,
             'rainy_periods': rainy_periods,
             'cloudy_periods': cloudy_periods
-        }
+        },
+        'forecast': weather.get('daily_forecast', [])
     }
 
 def get_location_details(lat, lon):
@@ -629,30 +767,124 @@ def delete_log(log_id):
     
     return redirect(url_for('inventory'))
 
+# ==================== VOICE BOT ====================
+
+@app.route('/voice-bot')
+@login_required
+def voice_bot():
+    """Voice Bot - Voice-enabled farmer assistant."""
+    return render_template('voice_bot.html')
+
+@app.route('/api/voice-bot', methods=['POST'])
+@login_required
+def voice_bot_api():
+    """API endpoint for voice bot processing."""
+    data = request.get_json()
+    message = data.get('message', '').lower()
+    language = data.get('language', 'en')
+    
+    # Simple intent detection and response generation
+    response = generate_bot_response(message, language)
+    
+    return jsonify({'response': response})
+
+def generate_bot_response(message, language):
+    """Generate a response based on the user's message."""
+    # Load translations for response
+    translations = TRANSLATIONS_DATA.get('translations', {})
+    
+    # Helper to get translated text
+    def tr(key):
+        if key in translations:
+            return translations[key].get(language, translations[key].get('en', key))
+        return key
+    
+    message_lower = message.lower()
+    
+    # Weather related queries
+    weather_keywords = ['weather', 'rain', 'forecast', 'mausam', 'barish', 'मौसम', 'बारिश', 'వాతావరణం', 'వర్షం', 'ಹವಾಮಾನ', 'ಮಳೆ', 'வானிலை', 'மழை', 'കാലാവസ്ഥ', 'മഴ']
+    if any(kw in message_lower for kw in weather_keywords):
+        return tr('bot_weather_response')
+    
+    # Crop related queries
+    crop_keywords = ['crop', 'plant', 'sow', 'fasal', 'फसल', 'बोना', 'పంట', 'ವಿತ್ತನೆ', 'பயிர்', 'വിള', 'what to grow', 'which crop', 'best crop']
+    if any(kw in message_lower for kw in crop_keywords):
+        return tr('bot_crop_response')
+    
+    # Scheme related queries
+    scheme_keywords = ['scheme', 'yojana', 'subsidy', 'government', 'help', 'sarkar', 'योजना', 'सरकार', 'సహాయం', 'పథకం', 'ಯೋಜನೆ', 'திட்டம்', 'പദ്ധതി']
+    if any(kw in message_lower for kw in scheme_keywords):
+        return tr('bot_scheme_response')
+    
+    # Price related queries
+    price_keywords = ['price', 'mandi', 'rate', 'cost', 'daam', 'bhav', 'दाम', 'भाव', 'ధర', 'ಬೆಲೆ', 'விலை', 'വില', 'market']
+    if any(kw in message_lower for kw in price_keywords):
+        return tr('bot_price_response')
+    
+    # Pest related queries
+    pest_keywords = ['pest', 'disease', 'insect', 'kida', 'rog', 'कीड़ा', 'रोग', 'పురుగు', 'ಕೀಟ', 'பூச்சி', 'കീടം']
+    if any(kw in message_lower for kw in pest_keywords):
+        return tr('bot_pest_response')
+    
+    # Greeting
+    greeting_keywords = ['hello', 'hi', 'namaste', 'namaskar', 'नमस्ते', 'నమస్కారం', 'ನಮಸ್ಕಾರ', 'வணக்கம்', 'നമസ്കാരം']
+    if any(kw in message_lower for kw in greeting_keywords):
+        return tr('bot_greeting_response')
+    
+    # Thank you
+    thanks_keywords = ['thank', 'dhanyavaad', 'shukriya', 'धन्यवाद', 'शुक्रिया', 'ధన్యవాదాలు', 'ಧನ್ಯವಾದ', 'நன்றி', 'നന്ദി']
+    if any(kw in message_lower for kw in thanks_keywords):
+        return tr('bot_thanks_response')
+    
+    # Default response
+    return tr('bot_default_response')
+
 # ==================== DISASTER SCHEME NAVIGATOR ====================
 
 @app.route('/disaster-help')
 @login_required
 def disaster_form():
     """Disaster Scheme Navigator - Input form."""
+    from datetime import date
     schemes_data = load_schemes_data()
     crops = schemes_data.get('crops', [])
     disaster_types = schemes_data.get('disaster_types', [])
-    return render_template('disaster_form.html', crops=crops, disaster_types=disaster_types)
+    states = schemes_data.get('states', [])
+    today = date.today().isoformat()
+    return render_template('disaster_form.html', 
+                          crops=crops, 
+                          disaster_types=disaster_types,
+                          states=states,
+                          today=today)
 
 @app.route('/disaster-result', methods=['POST'])
 @login_required
 def disaster_result():
-    """Disaster Scheme Navigator - Results page."""
+    """Disaster Scheme Navigator - Results page with enhanced matching."""
     try:
+        from datetime import datetime, date
+        
         crop = request.form.get('crop', '')
         disaster_type = request.form.get('disaster_type', '')
         land_size = float(request.form.get('land_size', 0))
         has_insurance = request.form.get('has_insurance', 'no') == 'yes'
+        has_kcc = request.form.get('has_kcc', 'no') == 'yes'
+        damage_percent = int(request.form.get('damage_percent', 50))
+        disaster_date_str = request.form.get('disaster_date', '')
+        state = request.form.get('state', '')
         
         if not crop or not disaster_type or land_size <= 0:
             flash('Please fill all required fields.', 'danger')
             return redirect(url_for('disaster_form'))
+        
+        # Calculate days since disaster
+        days_since_disaster = 0
+        if disaster_date_str:
+            try:
+                disaster_date = datetime.strptime(disaster_date_str, '%Y-%m-%d').date()
+                days_since_disaster = (date.today() - disaster_date).days
+            except ValueError:
+                days_since_disaster = 0
         
         # Get disaster info for display
         schemes_data = load_schemes_data()
@@ -661,8 +893,11 @@ def disaster_result():
             {'id': disaster_type, 'name': disaster_type.replace('_', ' ').title(), 'icon': '⚠️'}
         )
         
-        # Find eligible schemes
-        schemes = find_eligible_schemes(crop, disaster_type, land_size, has_insurance)
+        # Find eligible schemes with enhanced matching
+        schemes = find_eligible_schemes(crop, disaster_type, land_size, has_insurance, damage_percent, has_kcc)
+        
+        # Calculate total potential compensation
+        total_potential = sum(s.get('estimated_amount', 0) for s in schemes)
         
         return render_template(
             'disaster_result.html',
@@ -670,7 +905,12 @@ def disaster_result():
             disaster_info=disaster_info,
             land_size=land_size,
             has_insurance=has_insurance,
-            schemes=schemes
+            has_kcc=has_kcc,
+            damage_percent=damage_percent,
+            days_since_disaster=days_since_disaster,
+            state=state,
+            schemes=schemes,
+            total_potential=total_potential
         )
         
     except ValueError:

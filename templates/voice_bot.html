@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="{{ current_language }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('voice_bot') }} - {{ t('app_name') }}</title>
+    <style>
+        :root {
+            --primary: #2d8a4e;
+            --primary-dark: #1e6b3a;
+            --bg-main: #f8faf8;
+            --bg-card: #ffffff;
+            --bg-sidebar: #f5f8f5;
+            --text-primary: #2c3e50;
+            --text-secondary: #5a6c7d;
+            --text-muted: #8a9aa8;
+            --border: #e0e8e4;
+            --shadow: rgba(45, 138, 78, 0.08);
+            --accent: #3498db;
+            --danger: #e74c3c;
+            --success: #27ae60;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 15px var(--shadow);
+        }
+
+        .navbar .logo {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+
+        .nav-links a.logout { color: #ffcdd2; }
+
+        .lang-select {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+
+        .lang-select option {
+            color: #333;
+            background: #fff;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 80px 24px 40px;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .page-header h1 {
+            color: var(--primary);
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+
+        .page-header p {
+            color: var(--text-muted);
+        }
+
+        /* Voice Bot Card */
+        .voice-bot-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 30px var(--shadow);
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        /* Chat Container */
+        .chat-container {
+            background: var(--bg-sidebar);
+            border-radius: 16px;
+            height: 350px;
+            overflow-y: auto;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .chat-message {
+            display: flex;
+            margin-bottom: 15px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-message.user {
+            flex-direction: row-reverse;
+        }
+
+        .chat-message .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .chat-message.bot .avatar {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        }
+
+        .chat-message.user .avatar {
+            background: var(--accent);
+        }
+
+        .chat-message .bubble {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            margin: 0 12px;
+            line-height: 1.5;
+        }
+
+        .chat-message.bot .bubble {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-message.user .bubble {
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        /* Mic Button */
+        .mic-container {
+            margin: 25px 0;
+        }
+
+        .mic-btn {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            font-size: 2.5rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 6px 25px rgba(45, 138, 78, 0.3);
+            position: relative;
+        }
+
+        .mic-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 30px rgba(45, 138, 78, 0.4);
+        }
+
+        .mic-btn.listening {
+            background: linear-gradient(135deg, var(--danger) 0%, #c0392b 100%);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.5); }
+            70% { box-shadow: 0 0 0 20px rgba(231, 76, 60, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+        }
+
+        .mic-btn.processing {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        }
+
+        .mic-status {
+            margin-top: 15px;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            min-height: 24px;
+        }
+
+        /* Text Input Alternative */
+        .text-input-section {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .text-input-section input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 1rem;
+            background: var(--bg-sidebar);
+            transition: all 0.3s;
+        }
+
+        .text-input-section input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
+        }
+
+        .text-input-section button {
+            padding: 14px 24px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .text-input-section button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 25px;
+            padding-top: 25px;
+            border-top: 1px solid var(--border);
+        }
+
+        .quick-action-btn {
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border);
+            padding: 10px 18px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: var(--text-secondary);
+        }
+
+        .quick-action-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Language Info */
+        .language-info {
+            background: #e3f2fd;
+            padding: 12px 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #1565c0;
+        }
+
+        /* Tips Card */
+        .tips-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 25px;
+            box-shadow: 0 4px 15px var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .tips-card h3 {
+            color: var(--primary);
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .tips-list {
+            list-style: none;
+            text-align: left;
+        }
+
+        .tips-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .tips-list li:last-child {
+            border-bottom: none;
+        }
+
+        .tips-list li::before {
+            content: "💡";
+            margin-right: 10px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links a {
+                padding: 6px 10px;
+                font-size: 0.8rem;
+            }
+
+            .chat-container {
+                height: 280px;
+            }
+
+            .mic-btn {
+                width: 80px;
+                height: 80px;
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="{{ url_for('dashboard') }}" class="logo">🌾 {{ t('app_name') }}</a>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}">{{ t('dashboard') }}</a>
+            <a href="{{ url_for('risk_map') }}">{{ t('risk_map') }}</a>
+            <a href="{{ url_for('voice_bot') }}" class="active">{{ t('voice_bot') }}</a>
+            <a href="{{ url_for('disaster_form') }}">{{ t('disaster_help') }}</a>
+            <select class="lang-select" onchange="window.location.href='/set-language/' + this.value">
+                {% for code, name in available_languages.items() %}
+                    <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+            <a href="{{ url_for('logout') }}" class="logout">{{ t('logout') }}</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>🎤 {{ t('voice_bot') }}</h1>
+            <p>{{ t('voice_bot_subtitle') }}</p>
+        </div>
+
+        <div class="voice-bot-card">
+            <div class="language-info">
+                🌐 {{ t('speaking_in') }}: <strong>{{ available_languages[current_language] }}</strong>
+            </div>
+
+            <div class="chat-container" id="chatContainer">
+                <div class="chat-message bot">
+                    <div class="avatar">🌾</div>
+                    <div class="bubble">{{ t('bot_greeting') }}</div>
+                </div>
+            </div>
+
+            <div class="mic-container">
+                <button class="mic-btn" id="micBtn" onclick="toggleListening()">
+                    🎤
+                </button>
+                <div class="mic-status" id="micStatus">{{ t('tap_to_speak') }}</div>
+            </div>
+
+            <div class="text-input-section">
+                <input type="text" id="textInput" placeholder="{{ t('type_message') }}" onkeypress="handleKeyPress(event)">
+                <button onclick="sendTextMessage()">{{ t('send') }}</button>
+            </div>
+
+            <div class="quick-actions">
+                <button class="quick-action-btn" onclick="askQuestion('weather')">🌦️ {{ t('ask_weather') }}</button>
+                <button class="quick-action-btn" onclick="askQuestion('crops')">🌱 {{ t('ask_crops') }}</button>
+                <button class="quick-action-btn" onclick="askQuestion('schemes')">📋 {{ t('ask_schemes') }}</button>
+                <button class="quick-action-btn" onclick="askQuestion('prices')">💰 {{ t('ask_prices') }}</button>
+            </div>
+        </div>
+
+        <div class="tips-card">
+            <h3>{{ t('voice_tips_title') }}</h3>
+            <ul class="tips-list">
+                <li>{{ t('voice_tip_1') }}</li>
+                <li>{{ t('voice_tip_2') }}</li>
+                <li>{{ t('voice_tip_3') }}</li>
+                <li>{{ t('voice_tip_4') }}</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Language mapping for speech recognition
+        const langCodes = {
+            'en': 'en-IN',
+            'hi': 'hi-IN',
+            'kn': 'kn-IN',
+            'ta': 'ta-IN',
+            'te': 'te-IN',
+            'ml': 'ml-IN'
+        };
+
+        const currentLang = '{{ current_language }}';
+        const speechLang = langCodes[currentLang] || 'en-IN';
+
+        let recognition = null;
+        let isListening = false;
+        let synthesis = window.speechSynthesis;
+
+        // Translations for JavaScript
+        const jsTranslations = {
+            'listening': '{{ t("listening") }}',
+            'processing': '{{ t("processing") }}',
+            'tap_to_speak': '{{ t("tap_to_speak") }}',
+            'speech_not_supported': '{{ t("speech_not_supported") }}',
+            'error_occurred': '{{ t("error_occurred") }}'
+        };
+
+        // Initialize Speech Recognition
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = speechLang;
+
+            recognition.onstart = function() {
+                isListening = true;
+                document.getElementById('micBtn').classList.add('listening');
+                document.getElementById('micStatus').textContent = jsTranslations['listening'];
+            };
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                addMessage(transcript, 'user');
+                processUserInput(transcript);
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Speech recognition error:', event.error);
+                stopListening();
+            };
+
+            recognition.onend = function() {
+                stopListening();
+            };
+        }
+
+        function toggleListening() {
+            if (!recognition) {
+                alert(jsTranslations['speech_not_supported']);
+                return;
+            }
+
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.lang = speechLang;
+                recognition.start();
+            }
+        }
+
+        function stopListening() {
+            isListening = false;
+            document.getElementById('micBtn').classList.remove('listening');
+            document.getElementById('micStatus').textContent = jsTranslations['tap_to_speak'];
+        }
+
+        function addMessage(text, type) {
+            const container = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${type}`;
+            
+            const avatar = type === 'bot' ? '🌾' : '👨‍🌾';
+            messageDiv.innerHTML = `
+                <div class="avatar">${avatar}</div>
+                <div class="bubble">${text}</div>
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function speak(text) {
+            if (synthesis) {
+                synthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = speechLang;
+                utterance.rate = 0.9;
+                synthesis.speak(utterance);
+            }
+        }
+
+        function processUserInput(input) {
+            const micBtn = document.getElementById('micBtn');
+            const micStatus = document.getElementById('micStatus');
+            
+            micBtn.classList.add('processing');
+            micStatus.textContent = jsTranslations['processing'];
+
+            // Send to backend for processing
+            fetch('/api/voice-bot', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: input,
+                    language: currentLang
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                micBtn.classList.remove('processing');
+                micStatus.textContent = jsTranslations['tap_to_speak'];
+                
+                addMessage(data.response, 'bot');
+                speak(data.response);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                micBtn.classList.remove('processing');
+                micStatus.textContent = jsTranslations['tap_to_speak'];
+                addMessage(jsTranslations['error_occurred'], 'bot');
+            });
+        }
+
+        function sendTextMessage() {
+            const input = document.getElementById('textInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                addMessage(message, 'user');
+                processUserInput(message);
+                input.value = '';
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendTextMessage();
+            }
+        }
+
+        function askQuestion(topic) {
+            const questions = {
+                'weather': '{{ t("quick_weather") }}',
+                'crops': '{{ t("quick_crops") }}',
+                'schemes': '{{ t("quick_schemes") }}',
+                'prices': '{{ t("quick_prices") }}'
+            };
+            
+            const question = questions[topic];
+            if (question) {
+                addMessage(question, 'user');
+                processUserInput(question);
+            }
+        }
+    </script>
+</body>
+</html>

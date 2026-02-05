@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CropPilot - Farm Logbook</title>
+    <title>{{ t('app_name') }} - {{ t('farm_logbook') }}</title>
     <style>
         :root {
             --primary: #2d8a4e;
@@ -51,6 +51,7 @@
         .nav-links {
             display: flex;
             gap: 8px;
+            align-items: center;
         }
 
         .nav-links a {
@@ -69,6 +70,23 @@
         }
 
         .nav-links a.logout { color: #ffcdd2; }
+
+        /* Language Dropdown in Navbar */
+        .lang-select {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+
+        .lang-select option {
+            color: #333;
+            background: #fff;
+        }
 
         .container {
             max-width: 1200px;
@@ -316,20 +334,26 @@
 </head>
 <body>
     <nav class="navbar">
-        <a href="{{ url_for('dashboard') }}" class="logo">🌾 CropPilot</a>
+        <a href="{{ url_for('dashboard') }}" class="logo">🌾 {{ t('app_name') }}</a>
         <div class="nav-links">
-            <a href="{{ url_for('dashboard') }}">Dashboard</a>
-            <a href="{{ url_for('risk_map') }}">Risk Map</a>
-            <a href="{{ url_for('inventory') }}" class="active">Farm Logbook</a>
-            <a href="{{ url_for('disaster_form') }}">Disaster Help</a>
-            <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+            <a href="{{ url_for('dashboard') }}">{{ t('dashboard') }}</a>
+            <a href="{{ url_for('risk_map') }}">{{ t('risk_map') }}</a>
+            <a href="{{ url_for('inventory') }}" class="active">{{ t('farm_logbook') }}</a>
+            <a href="{{ url_for('disaster_form') }}">{{ t('disaster_help') }}</a>
+            <!-- Language Selector -->
+            <select class="lang-select" onchange="window.location.href='/set-language/' + this.value">
+                {% for code, name in available_languages.items() %}
+                    <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+            <a href="{{ url_for('logout') }}" class="logout">{{ t('logout') }}</a>
         </div>
     </nav>
 
     <div class="container">
         <div class="page-header">
-            <h1>📒 Farm Logbook</h1>
-            <p>Track your farming activities, expenses, and earnings</p>
+            <h1>📒 {{ t('farm_logbook') }}</h1>
+            <p>{{ t('track_activities') }}</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -342,59 +366,59 @@
 
         <div class="content-grid">
             <div class="form-card">
-                <h2>➕ Add New Entry</h2>
+                <h2>➕ {{ t('add_new_entry') }}</h2>
                 <form action="{{ url_for('add_log') }}" method="POST">
                     <div class="form-group">
-                        <label for="crop_name">Crop Name *</label>
-                        <input type="text" id="crop_name" name="crop_name" placeholder="e.g., Rice, Wheat" required>
+                        <label for="crop_name">{{ t('crop_name') }} *</label>
+                        <input type="text" id="crop_name" name="crop_name" placeholder="{{ t('crop_name_placeholder') }}" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="sowing_date">Sowing Date *</label>
+                        <label for="sowing_date">{{ t('sowing_date') }} *</label>
                         <input type="date" id="sowing_date" name="sowing_date" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="duration_days">Crop Duration (Days)</label>
-                        <input type="number" id="duration_days" name="duration_days" placeholder="e.g., 120">
+                        <label for="duration_days">{{ t('crop_duration') }}</label>
+                        <input type="number" id="duration_days" name="duration_days" placeholder="{{ t('duration_placeholder') }}">
                     </div>
 
                     <div class="row">
                         <div class="form-group">
-                            <label for="money_spent">💸 Spent (₹)</label>
+                            <label for="money_spent">💸 {{ t('money_spent') }}</label>
                             <input type="number" id="money_spent" name="money_spent" placeholder="0" step="0.01">
                         </div>
                         <div class="form-group">
-                            <label for="money_earned">💰 Earned (₹)</label>
+                            <label for="money_earned">💰 {{ t('money_earned') }}</label>
                             <input type="number" id="money_earned" name="money_earned" placeholder="0" step="0.01">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="notes">Notes</label>
-                        <textarea id="notes" name="notes" placeholder="Any additional notes..."></textarea>
+                        <label for="notes">{{ t('notes') }}</label>
+                        <textarea id="notes" name="notes" placeholder="{{ t('notes_placeholder') }}"></textarea>
                     </div>
 
-                    <button type="submit" class="btn">➕ Add Entry</button>
+                    <button type="submit" class="btn">➕ {{ t('add_entry') }}</button>
                 </form>
             </div>
 
             <div class="records-card">
-                <h2>📋 Your Records</h2>
+                <h2>📋 {{ t('your_records') }}</h2>
                 
                 {% if logs %}
                 <div class="summary-stats">
                     <div class="stat-box">
                         <div class="value">{{ logs|length }}</div>
-                        <div class="label">Total Entries</div>
+                        <div class="label">{{ t('total_entries') }}</div>
                     </div>
                     <div class="stat-box">
                         <div class="value">₹{{ "%.0f"|format(logs|sum(attribute='money_spent')) }}</div>
-                        <div class="label">Total Spent</div>
+                        <div class="label">{{ t('total_spent') }}</div>
                     </div>
                     <div class="stat-box">
                         <div class="value">₹{{ "%.0f"|format(logs|sum(attribute='money_earned')) }}</div>
-                        <div class="label">Total Earned</div>
+                        <div class="label">{{ t('total_earned') }}</div>
                     </div>
                 </div>
                 {% endif %}
@@ -404,12 +428,12 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Crop</th>
-                                <th>Sowing Date</th>
-                                <th>Harvest Date</th>
-                                <th>Spent</th>
-                                <th>Earned</th>
-                                <th>Profit/Loss</th>
+                                <th>{{ t('crop') }}</th>
+                                <th>{{ t('sowing_date') }}</th>
+                                <th>{{ t('harvest_date') }}</th>
+                                <th>{{ t('spent') }}</th>
+                                <th>{{ t('earned') }}</th>
+                                <th>{{ t('profit_loss') }}</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -429,7 +453,7 @@
                                 </td>
                                 <td>
                                     <form action="{{ url_for('delete_log', log_id=log.id) }}" method="POST" style="display: inline;">
-                                        <button type="submit" class="delete-btn" onclick="return confirm('Delete this entry?')">🗑️</button>
+                                        <button type="submit" class="delete-btn" onclick="return confirm('{{ t('delete_entry') }}')">🗑️</button>
                                     </form>
                                 </td>
                             </tr>
@@ -439,8 +463,8 @@
                     {% else %}
                     <div class="empty-state">
                         <div class="icon">📭</div>
-                        <h3>No records yet</h3>
-                        <p>Start by adding your first crop entry!</p>
+                        <h3>{{ t('no_records') }}</h3>
+                        <p>{{ t('start_adding') }}</p>
                     </div>
                     {% endif %}
                 </div>
