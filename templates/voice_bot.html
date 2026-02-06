@@ -530,6 +530,16 @@
             }
         }
 
+        // Store user location for weather queries
+        let userLocation = null;
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                pos => { userLocation = {lat: pos.coords.latitude, lon: pos.coords.longitude}; },
+                err => { console.log('Location not available'); },
+                {timeout: 5000}
+            );
+        }
+
         function processUserInput(input) {
             const micBtn = document.getElementById('micBtn');
             const micStatus = document.getElementById('micStatus');
@@ -537,16 +547,17 @@
             micBtn.classList.add('processing');
             micStatus.textContent = jsTranslations['processing'];
 
+            // Build request with optional location
+            const requestData = {message: input, language: currentLang};
+            if (userLocation) requestData.location = userLocation;
+
             // Send to backend for processing
             fetch('/api/voice-bot', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    message: input,
-                    language: currentLang
-                })
+                body: JSON.stringify(requestData)
             })
             .then(response => response.json())
             .then(data => {
