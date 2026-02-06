@@ -17,6 +17,23 @@ from functools import wraps
 # Load environment variables
 load_dotenv()
 
+# Google Gemini AI Configuration
+try:
+    import google.generativeai as genai
+    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+    if GEMINI_API_KEY:
+        genai.configure(api_key=GEMINI_API_KEY)
+        gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+        GEMINI_ENABLED = True
+        print("✅ Gemini AI enabled for voice bot")
+    else:
+        GEMINI_ENABLED = False
+        print("⚠️ GEMINI_API_KEY not set - voice bot will use basic responses")
+except ImportError:
+    GEMINI_ENABLED = False
+    gemini_model = None
+    print("⚠️ google-generativeai not installed - voice bot will use basic responses")
+
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
@@ -40,18 +57,29 @@ def get_current_language():
     """Get the current language from session, default to English."""
     return session.get('language', 'en')
 
-def t(key):
+def t(key, **kwargs):
     """
     Translation function - returns translated text for the given key.
     Falls back to English if translation not found.
+    Supports keyword arguments for string formatting.
     """
     lang = get_current_language()
     translations = TRANSLATIONS_DATA.get('translations', {})
     
     if key in translations:
         # Get translation for current language, fallback to English
-        return translations[key].get(lang, translations[key].get('en', key))
-    return key
+        text = translations[key].get(lang, translations[key].get('en', key))
+    else:
+        text = key
+    
+    # Apply string formatting if kwargs provided
+    if kwargs:
+        try:
+            text = text.format(**kwargs)
+        except (KeyError, ValueError):
+            pass  # If formatting fails, return the original text
+    
+    return text
 
 def get_available_languages():
     """Get list of available languages."""
@@ -789,7 +817,7 @@ def voice_bot_api():
     return jsonify({'response': response})
 
 def generate_bot_response(message, language):
-    """Generate a response based on the user's message."""
+    """Generate a response based on the user's message using AI."""
     # Load translations for response
     translations = TRANSLATIONS_DATA.get('translations', {})
     
@@ -801,43 +829,97 @@ def generate_bot_response(message, language):
     
     message_lower = message.lower()
     
-    # Weather related queries
-    weather_keywords = ['weather', 'rain', 'forecast', 'mausam', 'barish', 'मौसम', 'बारिश', 'వాతావరణం', 'వర్షం', 'ಹವಾಮಾನ', 'ಮಳೆ', 'வானிலை', 'மழை', 'കാലാവസ്ഥ', 'മഴ']
-    if any(kw in message_lower for kw in weather_keywords):
-        return tr('bot_weather_response')
-    
-    # Crop related queries
-    crop_keywords = ['crop', 'plant', 'sow', 'fasal', 'फसल', 'बोना', 'పంట', 'ವಿತ್ತನೆ', 'பயிர்', 'വിള', 'what to grow', 'which crop', 'best crop']
-    if any(kw in message_lower for kw in crop_keywords):
-        return tr('bot_crop_response')
-    
-    # Scheme related queries
-    scheme_keywords = ['scheme', 'yojana', 'subsidy', 'government', 'help', 'sarkar', 'योजना', 'सरकार', 'సహాయం', 'పథకం', 'ಯೋಜನೆ', 'திட்டம்', 'പദ്ധതി']
-    if any(kw in message_lower for kw in scheme_keywords):
-        return tr('bot_scheme_response')
-    
-    # Price related queries
-    price_keywords = ['price', 'mandi', 'rate', 'cost', 'daam', 'bhav', 'दाम', 'भाव', 'ధర', 'ಬೆಲೆ', 'விலை', 'വില', 'market']
-    if any(kw in message_lower for kw in price_keywords):
-        return tr('bot_price_response')
-    
-    # Pest related queries
-    pest_keywords = ['pest', 'disease', 'insect', 'kida', 'rog', 'कीड़ा', 'रोग', 'పురుగు', 'ಕೀಟ', 'பூச்சி', 'കീടം']
-    if any(kw in message_lower for kw in pest_keywords):
-        return tr('bot_pest_response')
-    
-    # Greeting
+    # Check for simple greetings first (no need for AI)
     greeting_keywords = ['hello', 'hi', 'namaste', 'namaskar', 'नमस्ते', 'నమస్కారం', 'ನಮಸ್ಕಾರ', 'வணக்கம்', 'നമസ്കാരം']
-    if any(kw in message_lower for kw in greeting_keywords):
+    if any(kw in message_lower for kw in greeting_keywords) and len(message_lower.split()) <= 3:
         return tr('bot_greeting_response')
     
-    # Thank you
+    # Thank you responses
     thanks_keywords = ['thank', 'dhanyavaad', 'shukriya', 'धन्यवाद', 'शुक्रिया', 'ధన్యవాదాలు', 'ಧನ್ಯವಾದ', 'நன்றி', 'നന്ദി']
     if any(kw in message_lower for kw in thanks_keywords):
         return tr('bot_thanks_response')
     
-    # Default response
+    # Try AI response for all farming queries
+    if GEMINI_ENABLED:
+        try:
+            ai_response = get_ai_farming_response(message, language)
+            if ai_response:
+                return ai_response
+        except Exception as e:
+            print(f"AI response error: {e}")
+            # Fall through to keyword-based response
+    
+    # Fallback: Keyword-based responses if AI is not available
+    weather_keywords = ['weather', 'rain', 'forecast', 'mausam', 'barish', 'मौसम', 'बारिश', 'వాతావరణం', 'వర్షం', 'ಹವಾಮಾನ', 'ಮಳೆ', 'வானிலை', 'மழை', 'കാലാവസ്ഥ', 'മഴ']
+    if any(kw in message_lower for kw in weather_keywords):
+        return tr('bot_weather_response')
+    
+    crop_keywords = ['crop', 'plant', 'sow', 'fasal', 'फसल', 'बोना', 'పంట', 'ವಿತ್ತನೆ', 'பயிர்', 'വിള', 'grow', 'harvest', 'wheat', 'rice', 'cotton', 'sugarcane', 'vegetable']
+    if any(kw in message_lower for kw in crop_keywords):
+        return tr('bot_crop_response')
+    
+    scheme_keywords = ['scheme', 'yojana', 'subsidy', 'government', 'sarkar', 'योजना', 'सरकार', 'సహాయం', 'పథకం', 'ಯೋಜನೆ', 'திட்டம்', 'പദ്ധതി']
+    if any(kw in message_lower for kw in scheme_keywords):
+        return tr('bot_scheme_response')
+    
+    price_keywords = ['price', 'mandi', 'rate', 'cost', 'daam', 'bhav', 'दाम', 'भाव', 'ధర', 'ಬೆಲೆ', 'விலை', 'വില', 'market']
+    if any(kw in message_lower for kw in price_keywords):
+        return tr('bot_price_response')
+    
+    pest_keywords = ['pest', 'disease', 'insect', 'kida', 'rog', 'कीड़ा', 'रोग', 'పురుగు', 'ಕೀಟ', 'பூச்சி', 'കീടം']
+    if any(kw in message_lower for kw in pest_keywords):
+        return tr('bot_pest_response')
+    
     return tr('bot_default_response')
+
+
+def get_ai_farming_response(user_query, language):
+    """Get AI-powered response for farming queries using Gemini."""
+    if not GEMINI_ENABLED or not gemini_model:
+        return None
+    
+    # Language name mapping
+    lang_names = {
+        'en': 'English',
+        'hi': 'Hindi',
+        'kn': 'Kannada',
+        'ta': 'Tamil',
+        'te': 'Telugu',
+        'ml': 'Malayalam'
+    }
+    response_language = lang_names.get(language, 'English')
+    
+    # Create a focused prompt for farming assistance
+    system_prompt = f"""You are an expert agricultural advisor for Indian farmers. Your name is CropPilot Assistant.
+
+IMPORTANT RULES:
+1. Answer ONLY questions related to farming, agriculture, crops, livestock, weather for farming, government agricultural schemes, market prices, and rural development.
+2. If the question is NOT related to farming/agriculture, politely say you can only help with farming-related queries.
+3. Keep responses concise (2-4 sentences) and practical for farmers.
+4. Respond in {response_language} language.
+5. Include specific, actionable advice when possible.
+6. For questions about timing (sowing, harvesting), provide India-specific information.
+7. Mention relevant government schemes or resources when applicable.
+
+User Question: {user_query}
+
+Provide a helpful, accurate response:"""
+
+    try:
+        response = gemini_model.generate_content(
+            system_prompt,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=300,
+                temperature=0.7
+            )
+        )
+        
+        if response and response.text:
+            return response.text.strip()
+        return None
+    except Exception as e:
+        print(f"Gemini API error: {e}")
+        return None
 
 # ==================== DISASTER SCHEME NAVIGATOR ====================
 
