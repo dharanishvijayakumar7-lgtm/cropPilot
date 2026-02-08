@@ -410,23 +410,114 @@
             </div>
 
             <div class="quick-actions">
-                <button class="quick-action-btn" onclick="askQuestion('weather')">🌦️ {{ t('ask_weather') }}</button>
-                <button class="quick-action-btn" onclick="askQuestion('crops')">🌱 {{ t('ask_crops') }}</button>
-                <button class="quick-action-btn" onclick="askQuestion('schemes')">📋 {{ t('ask_schemes') }}</button>
-                <button class="quick-action-btn" onclick="askQuestion('prices')">💰 {{ t('ask_prices') }}</button>
+                <!-- OLD BUTTONS REMOVED - Now using Suggested Questions section below -->
+            </div>
+        </div>
+
+        <!-- SUGGESTED QUESTIONS SECTION -->
+        <div class="suggested-questions-card">
+            <h3>💬 Suggested Questions</h3>
+            <p class="suggested-subtitle">Click a question to ask the bot:</p>
+            <div class="suggested-buttons">
+                <button class="suggested-btn harvest-btn" onclick="askSuggestedQuestion('Is today good for harvesting in Pune?')">
+                    🌾 Is today good for harvesting?
+                </button>
+                <button class="suggested-btn spray-btn" onclick="askSuggestedQuestion('Should I spray pesticides today in Delhi?')">
+                    🧴 Should I spray pesticides today?
+                </button>
+                <button class="suggested-btn weather-btn" onclick="askSuggestedQuestion('Will it rain today in Bangalore?')">
+                    🌧️ Will it rain today?
+                </button>
+                <button class="suggested-btn alert-btn" onclick="askSuggestedQuestion('Is there any heatwave alert in Mumbai?')">
+                    🔥 Is there any heatwave alert?
+                </button>
+                <button class="suggested-btn pest-btn" onclick="askSuggestedQuestion('Is there pest risk this week in Chennai?')">
+                    🐛 Is there pest risk this week?
+                </button>
             </div>
         </div>
 
         <div class="tips-card">
-            <h3>{{ t('voice_tips_title') }}</h3>
+            <h3>ℹ️ What I Can Help With</h3>
             <ul class="tips-list">
-                <li>{{ t('voice_tip_1') }}</li>
-                <li>{{ t('voice_tip_2') }}</li>
-                <li>{{ t('voice_tip_3') }}</li>
-                <li>{{ t('voice_tip_4') }}</li>
+                <li>🌤️ Today's weather & rain prediction</li>
+                <li>🌾 Is it good to harvest today? (YES/NO)</li>
+                <li>🧴 Should I spray pesticides? (YES/NO)</li>
+                <li>⚠️ Heatwave, flood, heavy rain alerts</li>
+                <li>🐛 Pest risk warnings for your area</li>
             </ul>
+            <p class="tips-note">📍 Tip: Include your city name for accurate results (e.g., "Weather in Pune")</p>
         </div>
     </div>
+
+    <style>
+        /* Suggested Questions Card */
+        .suggested-questions-card {
+            background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 25px;
+            box-shadow: 0 4px 15px var(--shadow);
+            border: 1px solid #c8e6c9;
+        }
+
+        .suggested-questions-card h3 {
+            color: var(--primary);
+            margin-bottom: 8px;
+            font-size: 1.2rem;
+        }
+
+        .suggested-subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+
+        .suggested-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .suggested-btn {
+            background: white;
+            border: 2px solid var(--border);
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .suggested-btn:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .harvest-btn:hover { border-color: #8bc34a; background: #f1f8e9; }
+        .spray-btn:hover { border-color: #ff9800; background: #fff3e0; }
+        .weather-btn:hover { border-color: #2196f3; background: #e3f2fd; }
+        .alert-btn:hover { border-color: #f44336; background: #ffebee; }
+        .pest-btn:hover { border-color: #9c27b0; background: #f3e5f5; }
+
+        .tips-note {
+            margin-top: 15px;
+            padding: 10px;
+            background: #fff3e0;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #e65100;
+        }
+
+        .tips-list li::before {
+            content: "" !important;
+            margin-right: 0 !important;
+        }
+    </style>
 
     <script>
         // Language mapping for speech recognition
@@ -605,6 +696,16 @@
                 addMessage(question, 'user');
                 processUserInput(question);
             }
+        }
+
+        // Function for suggested questions buttons
+        function askSuggestedQuestion(question) {
+            // Display the question in chat
+            addMessage(question, 'user');
+            // Process it through the voice bot
+            processUserInput(question);
+            // Scroll to chat container
+            document.getElementById('chatContainer').scrollIntoView({ behavior: 'smooth' });
         }
     </script>
 </body>

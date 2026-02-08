@@ -399,7 +399,7 @@ def get_weather_forecast_data(lat, lon):
             'cloudy_periods': cloudy_count,
             'clear_periods': clear_count,
             'total_periods': len(weather_conditions),
-            'daily_forecast': daily_forecasts
+            'daily_forecasts': daily_forecasts
         }
         
     except requests.exceptions.Timeout:
@@ -1284,24 +1284,309 @@ def _build_pest_response(query):
             "Visit your nearest Krishi Vigyan Kendra for lab diagnosis.")
 
 
-def generate_bot_response(message, language, location=None):
-    """Generate intelligent response using REAL DATA from weather API and crop database."""
-    translations = TRANSLATIONS_DATA.get('translations', {})
-    
-    def tr(key):
-        if key in translations:
-            return translations[key].get(language, translations[key].get('en', key))
-        return key
-    
+# ==================== FOCUSED VOICE BOT ENGINE ====================
+# This voice bot is LIMITED to 5 high-impact farming questions:
+# 1. Weather today / rain prediction
+# 2. Harvesting suitability (yes/no)
+# 3. Pesticide spraying (yes/no)
+# 4. Heatwave / flood / heavy rain alerts
+# 5. Pest risk warning
+# ==================================================================
+
+# Intent keywords for strict classification
+VOICE_BOT_INTENTS = {
+    'WEATHER': [
+        'weather', 'rain', 'temperature', 'temp', 'forecast',
+        'mausam', 'barish', 'baarish', 'barsaat', 'varsha',
+        'aaj ka mausam', 'kal ka mausam', 'today weather',
+        'will it rain', 'kya barish hogi', 'rain today',
+        'hot', 'cold', 'garam', 'thand', 'humidity'
+    ],
+    'HARVEST': [
+        'harvest', 'harvesting', 'cut crop', 'ready to harvest',
+        'katai', 'kaat', 'katne', 'fasal katna', 'fasal kaatna',
+        'can i harvest', 'should i harvest', 'is today good for harvest',
+        'harvesting today', 'kya aaj katai', 'aaj harvest', 
+        'ugai', 'upaj lena', 'crop cutting'
+    ],
+    'SPRAY': [
+        'spray', 'pesticide', 'chemical', 'spraying', 'dawai',
+        'keetnaashak', 'keetnashak', 'dawa', 'chidkav',
+        'should i spray', 'can i spray', 'pesticide spray',
+        'spray today', 'aaj spray', 'kya spray karun',
+        'fungicide', 'insecticide', 'herbicide'
+    ],
+    'ALERT': [
+        'flood', 'heat', 'heatwave', 'storm', 'heavy rain',
+        'baadh', 'badh', 'toofan', 'toofaan', 'andhi', 'aandhi',
+        'loo', 'garmi', 'heat wave', 'cyclone', 'warning',
+        'alert', 'danger', 'risk', 'khatrha', 'khatarnak',
+        'disaster', 'emergency', 'severe', 'extreme'
+    ],
+    'PEST': [
+        'pest', 'insect', 'disease', 'bug', 'worm',
+        'kida', 'keeda', 'kide', 'keede', 'makode',
+        'rog', 'bimari', 'beemari', 'infection',
+        'pest risk', 'pest attack', 'crop disease',
+        'fungus', 'leaf spot', 'yellowing', 'wilting'
+    ]
+}
+
+# Fallback response for out-of-scope questions
+FALLBACK_RESPONSE = (
+    "🚜 I am currently trained to answer questions about:\n\n"
+    "• Today's weather & rain prediction\n"
+    "• Is it good to harvest today?\n"
+    "• Should I spray pesticides today?\n"
+    "• Heatwave / flood / heavy rain alerts\n"
+    "• Pest risk warnings\n\n"
+    "Please ask one of these questions for accurate advice."
+)
+
+
+def _classify_intent(message):
+    """
+    Classify user message into one of the supported intents.
+    Returns the intent name or None if no match.
+    """
     msg = message.lower()
     
-    # Simple greetings
-    if any(kw in msg for kw in ['hello', 'hi', 'namaste', 'namaskar', 'kem cho', 'vanakkam']) and len(msg.split()) <= 3:
-        return tr('bot_greeting_response')
+    # Check each intent's keywords
+    for intent, keywords in VOICE_BOT_INTENTS.items():
+        for keyword in keywords:
+            if keyword in msg:
+                return intent
     
-    # Thanks
-    if any(kw in msg for kw in ['thank', 'dhanyavaad', 'shukriya', 'dhanyawad']):
-        return tr('bot_thanks_response')
+    return None
+
+
+def _build_focused_weather_response(location, weather):
+    """Build a short, actionable weather response."""
+    if not weather:
+        return ("🌤️ Please tell me your city for weather info.\n"
+                "Example: 'Weather in Pune' or 'Delhi mein mausam'")
+    
+    city = weather.get('city', 'your area')
+    fc = weather.get('daily_forecasts', [])
+    today = fc[0] if fc else None
+    
+    if not today:
+        return f"⚠️ Unable to fetch weather data for {city}. Try again later."
+    
+    temp = today.get('temp', 25)
+    rain = today.get('rain', 0)
+    humidity = today.get('humidity', 50)
+    wx = today.get('weather', 'clear').lower()
+    
+    # Build short, clear response
+    response = f"🌤️ Weather in {city} today:\n\n"
+    response += f"🌡️ Temperature: {temp}°C\n"
+    response += f"💧 Humidity: {humidity}%\n"
+    
+    if rain > 0 or wx in ['rain', 'drizzle', 'thunderstorm']:
+        response += f"🌧️ Rain: {rain}mm expected\n\n"
+        response += "💡 Recommendation: Expect rain today. Plan indoor activities."
+    else:
+        response += f"☀️ Rain: No rain expected\n\n"
+        response += "💡 Recommendation: Clear day. Good for outdoor farm work."
+    
+    return response
+
+
+def _build_focused_harvest_response(location, weather):
+    """Build a YES/NO harvest recommendation."""
+    if not weather:
+        return ("🌾 Please tell me your city to check harvest conditions.\n"
+                "Example: 'Can I harvest in Pune today?'")
+    
+    city = weather.get('city', 'your area')
+    fc = weather.get('daily_forecasts', [])
+    today = fc[0] if fc else None
+    
+    if not today:
+        return f"⚠️ Unable to fetch weather for {city}. Try again later."
+    
+    rain = today.get('rain', 0)
+    humidity = today.get('humidity', 50)
+    wx = today.get('weather', 'clear').lower()
+    
+    # Decision logic
+    is_bad = (rain > 2 or humidity > 80 or wx in ['rain', 'thunderstorm', 'drizzle'])
+    
+    if is_bad:
+        reasons = []
+        if rain > 2:
+            reasons.append(f"rain expected ({rain}mm)")
+        if humidity > 80:
+            reasons.append(f"high humidity ({humidity}%)")
+        if wx in ['rain', 'thunderstorm', 'drizzle']:
+            reasons.append(f"{wx} forecast")
+        
+        return (f"❌ NO - Not good for harvesting in {city} today.\n\n"
+                f"Reason: {', '.join(reasons)}.\n\n"
+                f"💡 Recommendation: Wait for a dry day. Wet harvest causes grain damage and storage problems.")
+    else:
+        return (f"✅ YES - Good conditions for harvesting in {city} today!\n\n"
+                f"Weather: {wx.title()}, {today.get('temp', 25)}°C, Humidity {humidity}%\n\n"
+                f"💡 Recommendation: Harvest between 10 AM - 4 PM for best results.")
+
+
+def _build_focused_spray_response(location, weather):
+    """Build a YES/NO pesticide spraying recommendation."""
+    if not weather:
+        return ("🧴 Please tell me your city to check spray conditions.\n"
+                "Example: 'Should I spray pesticide in Delhi?'")
+    
+    city = weather.get('city', 'your area')
+    fc = weather.get('daily_forecasts', [])
+    today = fc[0] if fc else None
+    
+    if not today:
+        return f"⚠️ Unable to fetch weather for {city}. Try again later."
+    
+    rain = today.get('rain', 0)
+    wind = today.get('wind_speed', 5)  # Default moderate wind
+    humidity = today.get('humidity', 50)
+    wx = today.get('weather', 'clear').lower()
+    temp = today.get('temp', 25)
+    
+    # Decision logic for spraying
+    problems = []
+    
+    if rain > 1 or wx in ['rain', 'thunderstorm', 'drizzle']:
+        problems.append("rain will wash away chemicals")
+    if humidity > 85:
+        problems.append("high humidity reduces effectiveness")
+    if temp > 35:
+        problems.append("high temperature causes rapid evaporation")
+    if wind > 15:
+        problems.append("strong wind causes drift")
+    
+    if problems:
+        return (f"❌ NO - Avoid spraying in {city} today.\n\n"
+                f"Reason: {', '.join(problems)}.\n\n"
+                f"💡 Recommendation: Spray early morning (6-9 AM) on a calm, dry day for best results.")
+    else:
+        return (f"✅ YES - Good conditions for spraying in {city} today.\n\n"
+                f"Weather: {wx.title()}, {temp}°C, Humidity {humidity}%, Low rain risk\n\n"
+                f"💡 Recommendation: Spray early morning (6-9 AM) or late evening (4-6 PM). Wear protective gear.")
+
+
+def _build_focused_alert_response(location, weather):
+    """Build weather alert response for floods, heatwaves, storms."""
+    if not weather:
+        return ("⚠️ Please tell me your city to check weather alerts.\n"
+                "Example: 'Any flood alert in Mumbai?'")
+    
+    city = weather.get('city', 'your area')
+    fc = weather.get('daily_forecasts', [])
+    total_rain = weather.get('total_rainfall', 0)
+    avg_temp = weather.get('avg_temp', 25)
+    
+    alerts = []
+    
+    # Check for heavy rain / flood risk
+    if total_rain > 100:
+        alerts.append(("🌊 FLOOD RISK", f"Heavy rainfall ({total_rain}mm) expected in 5 days. Risk of waterlogging."))
+    elif total_rain > 50:
+        alerts.append(("🌧️ HEAVY RAIN", f"Significant rainfall ({total_rain}mm) expected. Ensure proper drainage."))
+    
+    # Check for heatwave
+    if avg_temp > 40:
+        alerts.append(("🔥 HEATWAVE ALERT", f"Extreme heat ({avg_temp}°C avg). Irrigate crops, provide shade for livestock."))
+    elif avg_temp > 35:
+        alerts.append(("☀️ HIGH HEAT", f"Hot weather ({avg_temp}°C avg). Increase irrigation frequency."))
+    
+    # Check for storms in forecast
+    for day in fc[:3]:
+        if day.get('weather', '').lower() in ['thunderstorm', 'storm']:
+            alerts.append(("⛈️ STORM WARNING", f"Thunderstorm expected on {day.get('date', 'upcoming days')}. Secure farm equipment."))
+            break
+    
+    if alerts:
+        response = f"⚠️ Weather Alerts for {city}:\n\n"
+        for alert_type, description in alerts:
+            response += f"{alert_type}\n{description}\n\n"
+        response += "💡 Take precautions and monitor updates regularly."
+        return response
+    else:
+        return (f"✅ No severe weather alerts for {city}.\n\n"
+                f"5-day outlook: {total_rain}mm rain, {avg_temp}°C avg temp.\n\n"
+                f"💡 Normal conditions expected. Continue regular farm activities.")
+
+
+def _build_focused_pest_response(location, weather):
+    """Build pest risk warning based on weather conditions."""
+    if not weather:
+        return ("🐛 Please tell me your city to check pest risk.\n"
+                "Example: 'Pest risk in Bangalore?'")
+    
+    city = weather.get('city', 'your area')
+    fc = weather.get('daily_forecasts', [])
+    today = fc[0] if fc else None
+    avg_humidity = weather.get('avg_humidity', 50)
+    avg_temp = weather.get('avg_temp', 25)
+    total_rain = weather.get('total_rainfall', 0)
+    
+    risks = []
+    
+    # High humidity + warm = fungal diseases
+    if avg_humidity > 75 and avg_temp > 25:
+        risks.append("🍄 Fungal disease risk HIGH (humid + warm conditions)")
+    
+    # Recent rain + warmth = insect breeding
+    if total_rain > 20 and avg_temp > 20:
+        risks.append("🐛 Insect pest risk HIGH (post-rain breeding conditions)")
+    
+    # Hot and dry = aphids, mites
+    if avg_temp > 35 and avg_humidity < 40:
+        risks.append("🦗 Aphid/mite risk HIGH (hot, dry conditions)")
+    
+    # Continuous wet = bacterial/viral spread
+    if total_rain > 50:
+        risks.append("🦠 Bacterial/viral spread risk (waterlogged fields)")
+    
+    if risks:
+        response = f"⚠️ Pest Risk Alert for {city}:\n\n"
+        for risk in risks:
+            response += f"• {risk}\n"
+        response += "\n💡 Recommendation: Scout fields daily. Apply preventive spray if needed. Consult local KVK for specific treatment."
+        return response
+    else:
+        return (f"✅ Low pest risk in {city} this week.\n\n"
+                f"Conditions: {avg_temp}°C avg, {avg_humidity}% humidity, {total_rain}mm rain\n\n"
+                f"💡 Recommendation: Continue regular monitoring. Maintain field hygiene.")
+
+
+def generate_bot_response(message, language, location=None):
+    """
+    FOCUSED Voice Bot Response Generator.
+    
+    This bot ONLY handles 5 types of questions:
+    1. Weather today / rain prediction
+    2. Harvesting suitability (yes/no)
+    3. Pesticide spraying (yes/no)
+    4. Heatwave / flood / heavy rain alerts
+    5. Pest risk warning
+    
+    All other questions return a fallback response.
+    """
+    msg = message.lower()
+    
+    # Handle simple greetings
+    if any(kw in msg for kw in ['hello', 'hi', 'namaste', 'namaskar']) and len(msg.split()) <= 3:
+        return ("🙏 Namaste! I'm CropPilot Voice Assistant.\n\n"
+                "I can help you with:\n"
+                "• Today's weather\n"
+                "• Harvest suitability\n"
+                "• Pesticide spraying advice\n"
+                "• Weather alerts\n"
+                "• Pest risk warnings\n\n"
+                "How can I help you today?")
+    
+    # Handle thanks
+    if any(kw in msg for kw in ['thank', 'dhanyavaad', 'shukriya']):
+        return "🙏 You're welcome! Happy farming! Feel free to ask again anytime."
     
     # Extract location from query
     extracted = _extract_city(message)
@@ -1311,149 +1596,28 @@ def generate_bot_response(message, language, location=None):
     # Fetch live weather if we have location
     weather = _fetch_weather(location) if location else None
     
-    # ===== INTENT DETECTION & DATA-DRIVEN RESPONSES =====
+    # === STRICT INTENT CLASSIFICATION ===
+    intent = _classify_intent(message)
     
-    # 1. HARVEST (highest priority - farmers want YES/NO)
-    # Extended Hindi/mixed language keywords for harvest
-    harvest_keywords = [
-        'harvest', 'harvesting', 'harvested',
-        'katai', 'kaat', 'kaatai', 'katne', 'katna', 'kate',
-        'ugahi', 'upaj', 'fasal katai', 'fasal kaat',
-        'can i cut', 'should i harvest', 'aaj kaat', 'kal kaat',
-        'kya aaj', 'kya kal',  # "Can I today/tomorrow"
-    ]
-    if any(kw in msg for kw in harvest_keywords):
-        response = _build_harvest_response(location, weather, message)
-        # Try AI enhancement if available
-        if GEMINI_ENABLED:
-            try:
-                ai = get_ai_farming_response(message, language)
-                if ai:
-                    return ai
-            except:
-                pass
-        return response
+    if intent == 'WEATHER':
+        return _build_focused_weather_response(location, weather)
     
-    # 2. WEATHER - extended keywords
-    weather_keywords = [
-        'weather', 'rain', 'forecast', 'temperature', 'temp',
-        'mausam', 'barish', 'baarish', 'varsha', 'paani',
-        'today', 'tomorrow', 'aaj', 'kal', 'abhi',
-        'hot', 'cold', 'garam', 'thand', 'sardi',
-        'humidity', 'wind', 'hawa', 'namee',
-        'report', 'climate', 'conditions'
-    ]
-    if any(kw in msg for kw in weather_keywords):
-        if weather:
-            response = _build_weather_response(location, weather)
-            if GEMINI_ENABLED:
-                try:
-                    ai = get_ai_farming_response(message, language)
-                    if ai:
-                        return ai
-                except:
-                    pass
-            return response
-        # Check if location might be in query but not detected
-        if any(word in msg for word in ['ka', 'ki', 'ke', 'mein', 'me', 'in', 'of', 'for']):
-            return ("🔍 I couldn't detect the city name. Please try:\n"
-                    "• 'Weather in Pune'\n"
-                    "• 'Delhi ka mausam'\n"
-                    "• 'Bangalore weather today'\n\n"
-                    "Or simply type the city name.")
-        return "Tell me your city for live weather!\nExample: 'weather in Pune' or 'Delhi mausam today'"
+    elif intent == 'HARVEST':
+        return _build_focused_harvest_response(location, weather)
     
-    # 3. CROP advice - extended with Hindi names
-    crop_keywords = [
-        'crop', 'crops', 'plant', 'planting', 'sow', 'sowing', 'grow', 'growing',
-        'best crop', 'which crop', 'konsa', 'kaun sa', 'kaun si',
-        'fasal', 'fasalen', 'ugana', 'ugao', 'boo', 'boona',
-        # Specific crops (English + Hindi)
-        'wheat', 'gehu', 'gehun', 'rice', 'dhan', 'chawal', 'paddy',
-        'maize', 'makka', 'makki', 'corn',
-        'ragi', 'millets', 'bajra', 'jowar',
-        'barley', 'jau', 'chickpea', 'chana', 'gram',
-        'mustard', 'sarson', 'sarso', 'rai',
-        'groundnut', 'moongfali', 'mungfali', 'peanut',
-        'cotton', 'kapas', 'sugarcane', 'ganna',
-        'potato', 'aloo', 'onion', 'pyaz', 'pyaaz',
-        'tomato', 'tamatar', 'vegetables', 'sabzi', 'sabji',
-        'watermelon', 'tarbuj', 'cucumber', 'kheera', 'khira', 'muskmelon', 'kharbooja',
-    ]
-    if any(kw in msg for kw in crop_keywords):
-        response = _build_crop_response(location, weather, message)
-        if response:
-            if GEMINI_ENABLED:
-                try:
-                    ai = get_ai_farming_response(message, language)
-                    if ai:
-                        return ai
-                except:
-                    pass
-            return response
+    elif intent == 'SPRAY':
+        return _build_focused_spray_response(location, weather)
     
-    # 4. SCHEME - extended keywords
-    scheme_keywords = [
-        'scheme', 'schemes', 'yojana', 'yojna', 'yojnaye',
-        'subsidy', 'grant', 'government', 'sarkar', 'sarkari',
-        'insurance', 'bima', 'fasal bima',
-        'pmfby', 'pm kisan', 'pm-kisan', 'kcc', 'kisan credit',
-        'loan', 'karz', 'rin', 'udhar',
-        'relief', 'rahat', 'madad', 'sahayata', 'compensation', 'muavza'
-    ]
-    if any(kw in msg for kw in scheme_keywords):
-        return _build_scheme_response(message)
+    elif intent == 'ALERT':
+        return _build_focused_alert_response(location, weather)
     
-    # 5. PRICE - extended keywords
-    price_keywords = [
-        'price', 'prices', 'rate', 'rates', 'cost',
-        'mandi', 'mandee', 'market',
-        'daam', 'dam', 'bhav', 'bhaw', 'mol',
-        'msp', 'minimum support', 'support price',
-        'sell', 'bechna', 'bech', 'selling', 'bikri',
-        'kitne', 'kitna', 'kya rate', 'kya bhav'
-    ]
-    if any(kw in msg for kw in price_keywords):
-        return _build_price_response(message)
+    elif intent == 'PEST':
+        return _build_focused_pest_response(location, weather)
     
-    # 6. PEST - extended keywords
-    pest_keywords = [
-        'pest', 'pests', 'disease', 'diseases', 'insect', 'insects',
-        'kida', 'kide', 'keeda', 'keede', 'makode',
-        'rog', 'bimari', 'beemari',
-        'fungus', 'phungus', 'fafundi', 'phaphoond',
-        'yellow', 'peela', 'pila', 'yellowing', 'leaf',
-        'brown', 'spots', 'daag', 'holes', 'ched',
-        'wilt', 'murjhana', 'dying', 'mar', 'sukh',
-        'spray', 'dawai', 'dawa', 'medicine', 'treatment', 'ilaj'
-    ]
-    if any(kw in msg for kw in pest_keywords):
-        return _build_pest_response(message)
-    
-    # 7. Try AI for any other query
-    if GEMINI_ENABLED:
-        try:
-            ai = get_ai_farming_response(message, language)
-            if ai:
-                return ai
-        except Exception as e:
-            print(f"AI error: {e}")
-    
-    # 8. Smart default with examples
-    season, months = _get_season()
-    season_crops = [c['name'] for c in _load_crops().get('crops', []) if c.get('season') == season]
-    crop_list = ", ".join(season_crops) if season_crops else "wheat, mustard, chickpea"
-    
-    return (f"🌾 I'm CropPilot, your farming assistant!\n\n"
-            f"📆 Current Season: {season} ({months})\n"
-            f"🌱 Suitable Crops: {crop_list}\n\n"
-            f"Try asking:\n"
-            f"• 'Weather in Delhi' (मौसम बताओ)\n"
-            f"• 'Best crop for Bangalore'\n"
-            f"• 'Can I harvest wheat today in Pune'\n"
-            f"• 'Tell me about PMFBY scheme'\n"
-            f"• 'Rice price' (चावल का भाव)\n\n"
-            f"🗣️ You can speak in Hindi, English, or Hinglish!")
+    else:
+        # NO MATCH - Return strict fallback
+        # Do NOT attempt to guess or use AI for out-of-scope questions
+        return FALLBACK_RESPONSE
 
 
 def get_ai_farming_response(user_query, language):
