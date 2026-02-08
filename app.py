@@ -801,19 +801,42 @@ def delete_log(log_id):
 @login_required
 def voice_bot():
     """Voice Bot - Voice-enabled farmer assistant."""
+    # Clear previous location when entering voice bot page
+    session.pop('last_bot_location', None)
     return render_template('voice_bot.html')
 
 @app.route('/api/voice-bot', methods=['POST'])
 @login_required
 def voice_bot_api():
-    """API endpoint for voice bot processing."""
+    """API endpoint for voice bot processing with session-based location memory."""
     data = request.get_json()
     message = data.get('message', '')
     language = data.get('language', 'en')
-    location = data.get('location', None)
+    location = data.get('location', None)  # GPS location from browser
+    
+    # Try to extract city from message first
+    extracted_city = _extract_city(message)
+    
+    if extracted_city:
+        # User mentioned a city - use it and remember it
+        location = extracted_city
+        session['last_bot_location'] = extracted_city
+    elif location:
+        # GPS location provided - convert to location dict format
+        if isinstance(location, dict) and 'lat' in location and 'lon' in location:
+            # Try to get city name from weather API response later
+            session['last_bot_location'] = location
+    elif 'last_bot_location' in session:
+        # Use remembered location from previous query
+        location = session['last_bot_location']
     
     response = generate_bot_response(message, language, location)
-    return jsonify({'response': response})
+    
+    # Include location context in response for debugging (optional in production)
+    return jsonify({
+        'response': response,
+        'location_used': location.get('name') if isinstance(location, dict) and 'name' in location else None
+    })
 
 
 # ==================== SMART VOICE BOT ENGINE ====================
@@ -837,14 +860,63 @@ INDIAN_CITIES = {
     'amritsar': (31.6340, 74.8723), 'chandigarh': (30.7333, 76.7794),
     'ranchi': (23.3441, 85.3096), 'guwahati': (26.1445, 91.7362),
     'bhubaneswar': (20.2961, 85.8245), 'raipur': (21.2514, 81.6296),
+    'noida': (28.5355, 77.3910), 'gurgaon': (28.4595, 77.0266),
+    'gurugram': (28.4595, 77.0266), 'faridabad': (28.4089, 77.3178),
+    'ghaziabad': (28.6692, 77.4538), 'thane': (19.2183, 72.9781),
+    'visakhapatnam': (17.6868, 83.2185), 'vizag': (17.6868, 83.2185),
+}
+
+# City name aliases and common misspellings for fuzzy matching
+CITY_ALIASES = {
+    'bengalore': 'bangalore', 'banglore': 'bangalore', 'bangaluru': 'bangalore',
+    'blr': 'bangalore', 'bengaluru': 'bangalore', 'bangalor': 'bangalore',
+    'puna': 'pune', 'poona': 'pune',
+    'dilli': 'delhi', 'new delhi': 'delhi', 'newdelhi': 'delhi',
+    'bombay': 'mumbai', 'mumbay': 'mumbai',
+    'kolkatta': 'kolkata', 'calcutta': 'kolkata',
+    'hyderbad': 'hyderabad', 'hyd': 'hyderabad', 'hydrabad': 'hyderabad',
+    'lucnow': 'lucknow', 'lakhnau': 'lucknow',
+    'varanshi': 'varanasi', 'banaras': 'varanasi', 'kashi': 'varanasi',
+    'mysuru': 'mysore', 'mysooru': 'mysore',
+    'madras': 'chennai', 'chenai': 'chennai',
+    'cochin': 'kochi', 'cochine': 'kochi',
+    'vishakapatnam': 'visakhapatnam', 'vizak': 'visakhapatnam',
+    'ahemdabad': 'ahmedabad', 'ahmadabad': 'ahmedabad',
+    'jodpur': 'jodhpur', 'jaipure': 'jaipur',
 }
 
 def _extract_city(query):
-    """Extract city name from query."""
+    """Extract city name from query with fuzzy matching."""
+    import re
     q = query.lower()
+    
+    # First, try direct match
     for city, coords in INDIAN_CITIES.items():
-        if city in q:
+        # Use word boundary matching to avoid partial matches
+        if re.search(r'\b' + re.escape(city) + r'\b', q):
             return {'name': city.title(), 'lat': coords[0], 'lon': coords[1]}
+    
+    # Try alias matching
+    for alias, canonical in CITY_ALIASES.items():
+        if re.search(r'\b' + re.escape(alias) + r'\b', q):
+            if canonical in INDIAN_CITIES:
+                coords = INDIAN_CITIES[canonical]
+                return {'name': canonical.title(), 'lat': coords[0], 'lon': coords[1]}
+    
+    # Fuzzy match - find words that are close to city names
+    words = q.split()
+    for word in words:
+        if len(word) >= 4:  # Only match words with 4+ chars
+            for city, coords in INDIAN_CITIES.items():
+                # Check if word starts with same 3-4 chars (fuzzy)
+                if len(city) >= 4 and word[:4] == city[:4]:
+                    return {'name': city.title(), 'lat': coords[0], 'lon': coords[1]}
+                # Check Levenshtein-like similarity (simple version)
+                if len(word) >= 5 and len(city) >= 5:
+                    matching = sum(1 for a, b in zip(word, city) if a == b)
+                    if matching >= len(city) - 2:  # Allow 2 char difference
+                        return {'name': city.title(), 'lat': coords[0], 'lon': coords[1]}
+    
     return None
 
 def _get_season():
@@ -883,70 +955,203 @@ def _fetch_weather(location):
         return None
 
 def _build_weather_response(location, weather):
-    """Build weather response from live data."""
+    """Build comprehensive weather response from live data."""
     if not weather:
         return None
-    city = weather.get('city', location.get('name', 'your area'))
+    city = weather.get('city', location.get('name', 'your area') if location else 'your area')
     fc = weather.get('daily_forecasts', [])
     today = fc[0] if fc else None
     tomorrow = fc[1] if len(fc) > 1 else None
     
-    response = f"Weather for {city}:\n"
-    if today:
-        response += f"• Today: {today['weather'].title()}, {today['temp']}°C, Humidity {today['humidity']}%, Rain {today['rain']}mm\n"
-    if tomorrow:
-        response += f"• Tomorrow: {tomorrow['weather'].title()}, {tomorrow['temp']}°C, Rain {tomorrow['rain']}mm\n"
+    response = f"🌤️ Weather for {city}:\n\n"
     
+    if today:
+        wx_emoji = {
+            'clear': '☀️', 'clouds': '☁️', 'rain': '🌧️', 'drizzle': '🌦️',
+            'thunderstorm': '⛈️', 'snow': '❄️', 'mist': '🌫️', 'fog': '🌫️'
+        }
+        emoji = wx_emoji.get(today['weather'].lower(), '🌡️')
+        response += f"{emoji} Today: {today['weather'].title()}, {today['temp']}°C\n"
+        response += f"   💧 Humidity: {today['humidity']}%\n"
+        if today['rain'] > 0:
+            response += f"   🌧️ Rain: {today['rain']}mm\n"
+        else:
+            response += f"   ☀️ No rain expected\n"
+    
+    if tomorrow:
+        response += f"\n📅 Tomorrow: {tomorrow['weather'].title()}, {tomorrow['temp']}°C"
+        if tomorrow['rain'] > 0:
+            response += f", Rain {tomorrow['rain']}mm"
+        response += "\n"
+    
+    # Add 5-day outlook
     total_rain = weather.get('total_rainfall', 0)
+    avg_temp = weather.get('avg_temp', 25)
+    
+    response += f"\n📊 5-Day Outlook:\n"
+    response += f"   • Avg Temperature: {avg_temp}°C\n"
+    response += f"   • Total Rainfall: {total_rain}mm\n"
+    
+    # Farming recommendations based on weather
+    response += "\n🌱 Farming Advice:\n"
     if total_rain > 50:
-        response += f"⚠️ Heavy rain expected ({total_rain}mm in 5 days). Protect crops!"
-    elif total_rain > 10:
-        response += f"Moderate rainfall expected ({total_rain}mm over 5 days)."
+        response += "   ⚠️ Heavy rain expected! Postpone spraying, ensure drainage."
+    elif total_rain > 20:
+        response += "   💧 Good rainfall ahead. Reduce irrigation, prepare for wet conditions."
+    elif total_rain > 5:
+        response += "   ✅ Light rain expected. Good for most crops."
     else:
-        response += f"Low rainfall ({total_rain}mm). Consider irrigation if needed."
+        if avg_temp > 35:
+            response += "   ⚠️ Hot & dry weather. Increase irrigation, add mulch."
+        elif avg_temp > 30:
+            response += "   💧 Warm & dry. Consider irrigation every 2-3 days."
+        else:
+            response += "   ✅ Dry weather. Good for harvesting if crops are ready."
+    
     return response
 
-def _build_harvest_response(location, weather):
-    """Build harvest advice from live weather."""
+def _extract_crop_from_query(query):
+    """Extract crop name from query including Hindi names and common misspellings."""
+    crop_aliases = {
+        # Wheat
+        'wheat': 'Wheat', 'gehu': 'Wheat', 'gehun': 'Wheat', 'gahu': 'Wheat',
+        'beat': 'Wheat', 'weat': 'Wheat',  # Common speech-to-text errors
+        # Rice
+        'rice': 'Rice', 'dhan': 'Rice', 'chawal': 'Rice', 'paddy': 'Rice',
+        # Maize
+        'maize': 'Maize', 'makka': 'Maize', 'makki': 'Maize', 'corn': 'Maize',
+        # Mustard
+        'mustard': 'Mustard', 'sarson': 'Mustard', 'sarso': 'Mustard', 'rai': 'Mustard',
+        # Chickpea
+        'chickpea': 'Chickpea', 'chana': 'Chickpea', 'gram': 'Chickpea',
+        # Cotton
+        'cotton': 'Cotton', 'kapas': 'Cotton', 'rui': 'Cotton',
+        # Sugarcane
+        'sugarcane': 'Sugarcane', 'ganna': 'Sugarcane', 'ikh': 'Sugarcane',
+        # Potato
+        'potato': 'Potato', 'aloo': 'Potato', 'alu': 'Potato',
+        # Onion
+        'onion': 'Onion', 'pyaz': 'Onion', 'pyaaz': 'Onion', 'kanda': 'Onion',
+        # Tomato
+        'tomato': 'Tomato', 'tamatar': 'Tomato',
+        # Groundnut
+        'groundnut': 'Groundnut', 'moongfali': 'Groundnut', 'mungfali': 'Groundnut', 'peanut': 'Groundnut',
+        # Barley
+        'barley': 'Barley', 'jau': 'Barley', 'jow': 'Barley',
+        # Millets
+        'ragi': 'Ragi', 'bajra': 'Bajra', 'jowar': 'Jowar', 'sorghum': 'Jowar',
+    }
+    
+    q = query.lower()
+    for alias, crop in crop_aliases.items():
+        if alias in q:
+            return crop
+    return None
+
+def _build_harvest_response(location, weather, query=None):
+    """Build harvest advice from live weather with crop-specific info."""
     season, months = _get_season()
     crop_db = _load_crops()
     season_crops = [c['name'] for c in crop_db.get('crops', []) if c.get('season') == season]
     crop_list = ", ".join(season_crops) if season_crops else "seasonal crops"
     
+    # Try to extract specific crop from query
+    specific_crop = _extract_crop_from_query(query) if query else None
+    
     if weather:
         city = weather.get('city', location.get('name', '') if location else '')
         fc = weather.get('daily_forecasts', [])
         today = fc[0] if fc else None
+        tomorrow = fc[1] if len(fc) > 1 else None
         
         if today:
             rain = today.get('rain', 0)
             wx = today.get('weather', 'clear').lower()
             hum = today.get('humidity', 50)
             temp = today.get('temp', 25)
+            wind = today.get('wind_speed', 0)  # if available
             loc = f" in {city}" if city else ""
+            crop_info = f" for {specific_crop}" if specific_crop else ""
             
-            # Check for problems
+            # Detailed condition analysis
             problems = []
-            if rain > 5:
-                problems.append(f"expected rainfall is {rain}mm")
-            if wx in ['rain', 'thunderstorm', 'drizzle', 'shower']:
-                problems.append(f"weather shows {wx}")
-            if hum > 85:
-                problems.append(f"humidity is high at {hum}%")
+            warnings = []
             
+            # Rain check
+            if rain > 10:
+                problems.append(f"🌧️ Heavy rainfall ({rain}mm)")
+            elif rain > 2:
+                warnings.append(f"🌦️ Light rain possible ({rain}mm)")
+            
+            # Weather condition check
+            if wx in ['rain', 'thunderstorm']:
+                problems.append(f"⛈️ {wx.title()} forecast")
+            elif wx in ['drizzle', 'shower']:
+                warnings.append(f"🌧️ {wx.title()} expected")
+            
+            # Humidity check
+            if hum > 85:
+                problems.append(f"💧 Very high humidity ({hum}%)")
+            elif hum > 75:
+                warnings.append(f"💧 High humidity ({hum}%) - harvest early morning")
+            
+            # Temperature check for specific crops
+            if specific_crop == 'Wheat' and temp > 35:
+                warnings.append(f"🌡️ High temp ({temp}°C) - harvest early to avoid grain shattering")
+            
+            # Build response
             if problems:
-                return (f"❌ Not ideal for harvesting today{loc}.\n"
-                        f"Reason: {', '.join(problems)}. Temperature: {temp}°C.\n"
-                        f"Recommendation: Wait for a clear, dry day to avoid grain moisture issues.\n"
-                        f"{season} crops ({months}): {crop_list}")
+                response = f"❌ NOT recommended for harvesting today{loc}{crop_info}\n\n"
+                response += "⚠️ Issues:\n"
+                for p in problems:
+                    response += f"   • {p}\n"
+                if warnings:
+                    response += "\n⚡ Also note:\n"
+                    for w in warnings:
+                        response += f"   • {w}\n"
+                
+                # Recommend best day from forecast
+                best_day = None
+                for i, day in enumerate(fc[1:4], 1):  # Check next 3 days
+                    if day.get('rain', 0) < 2 and day.get('humidity', 50) < 80:
+                        if day.get('weather', '').lower() not in ['rain', 'thunderstorm', 'drizzle']:
+                            best_day = day
+                            break
+                
+                if best_day:
+                    response += f"\n✅ Better day: {best_day['date']} ({best_day['weather'].title()}, {best_day['temp']}°C, Humidity {best_day.get('humidity', 50)}%)"
+                else:
+                    response += "\n📅 Check weather again tomorrow for better conditions."
+                
+            elif warnings:
+                response = f"⚠️ Possible to harvest today{loc}{crop_info}, but with caution:\n\n"
+                response += f"🌡️ Current: {wx.title()}, {temp}°C, Humidity {hum}%\n\n"
+                response += "⚡ Considerations:\n"
+                for w in warnings:
+                    response += f"   • {w}\n"
+                response += "\n💡 Tip: Harvest between 10 AM - 4 PM when moisture is lowest."
+                
             else:
-                return (f"✅ Good conditions for harvesting today{loc}!\n"
-                        f"Weather: {wx.title()}, {temp}°C, Humidity {hum}%, Rain {rain}mm.\n"
-                        f"The conditions are dry enough for harvest.\n"
-                        f"{season} crops ({months}): {crop_list}")
+                response = f"✅ EXCELLENT conditions for harvesting today{loc}{crop_info}!\n\n"
+                response += f"🌤️ Weather: {wx.title()}\n"
+                response += f"🌡️ Temperature: {temp}°C\n"
+                response += f"💧 Humidity: {hum}%\n"
+                response += f"🌧️ Rain: {rain}mm\n\n"
+                response += "💡 Best time: 10 AM - 4 PM for dry grain.\n"
+                if specific_crop:
+                    response += f"\n🌾 {specific_crop} harvesting tips:\n"
+                    if specific_crop == 'Wheat':
+                        response += "   • Harvest when grain is hard and golden\n   • Moisture should be <14% for storage"
+                    elif specific_crop == 'Rice':
+                        response += "   • Harvest when 80% grains are golden\n   • Dry immediately after cutting"
+            
+            response += f"\n\n📆 {season} season crops: {crop_list}"
+            return response
     
-    return (f"I need your location to check harvest conditions.\n"
-            f"Try: 'Can I harvest today in Pune' or 'harvest in Delhi'\n"
+    return (f"🔍 I need your location to check harvest conditions{' for ' + specific_crop if specific_crop else ''}.\n\n"
+            f"Try:\n"
+            f"• 'Can I harvest wheat today in Pune'\n"
+            f"• 'Kya aaj Delhi mein katai kar sakta hun'\n\n"
             f"Current {season} season ({months}) crops: {crop_list}")
 
 def _build_crop_response(location, weather, query):
@@ -1091,11 +1296,11 @@ def generate_bot_response(message, language, location=None):
     msg = message.lower()
     
     # Simple greetings
-    if any(kw in msg for kw in ['hello', 'hi', 'namaste', 'namaskar']) and len(msg.split()) <= 3:
+    if any(kw in msg for kw in ['hello', 'hi', 'namaste', 'namaskar', 'kem cho', 'vanakkam']) and len(msg.split()) <= 3:
         return tr('bot_greeting_response')
     
     # Thanks
-    if any(kw in msg for kw in ['thank', 'dhanyavaad', 'shukriya']):
+    if any(kw in msg for kw in ['thank', 'dhanyavaad', 'shukriya', 'dhanyawad']):
         return tr('bot_thanks_response')
     
     # Extract location from query
@@ -1109,8 +1314,16 @@ def generate_bot_response(message, language, location=None):
     # ===== INTENT DETECTION & DATA-DRIVEN RESPONSES =====
     
     # 1. HARVEST (highest priority - farmers want YES/NO)
-    if any(kw in msg for kw in ['harvest', 'harvesting', 'katai', 'kaat']):
-        response = _build_harvest_response(location, weather)
+    # Extended Hindi/mixed language keywords for harvest
+    harvest_keywords = [
+        'harvest', 'harvesting', 'harvested',
+        'katai', 'kaat', 'kaatai', 'katne', 'katna', 'kate',
+        'ugahi', 'upaj', 'fasal katai', 'fasal kaat',
+        'can i cut', 'should i harvest', 'aaj kaat', 'kal kaat',
+        'kya aaj', 'kya kal',  # "Can I today/tomorrow"
+    ]
+    if any(kw in msg for kw in harvest_keywords):
+        response = _build_harvest_response(location, weather, message)
         # Try AI enhancement if available
         if GEMINI_ENABLED:
             try:
@@ -1121,8 +1334,16 @@ def generate_bot_response(message, language, location=None):
                 pass
         return response
     
-    # 2. WEATHER
-    if any(kw in msg for kw in ['weather', 'rain', 'forecast', 'temperature', 'mausam', 'barish', 'today', 'tomorrow']):
+    # 2. WEATHER - extended keywords
+    weather_keywords = [
+        'weather', 'rain', 'forecast', 'temperature', 'temp',
+        'mausam', 'barish', 'baarish', 'varsha', 'paani',
+        'today', 'tomorrow', 'aaj', 'kal', 'abhi',
+        'hot', 'cold', 'garam', 'thand', 'sardi',
+        'humidity', 'wind', 'hawa', 'namee',
+        'report', 'climate', 'conditions'
+    ]
+    if any(kw in msg for kw in weather_keywords):
         if weather:
             response = _build_weather_response(location, weather)
             if GEMINI_ENABLED:
@@ -1133,13 +1354,32 @@ def generate_bot_response(message, language, location=None):
                 except:
                     pass
             return response
+        # Check if location might be in query but not detected
+        if any(word in msg for word in ['ka', 'ki', 'ke', 'mein', 'me', 'in', 'of', 'for']):
+            return ("🔍 I couldn't detect the city name. Please try:\n"
+                    "• 'Weather in Pune'\n"
+                    "• 'Delhi ka mausam'\n"
+                    "• 'Bangalore weather today'\n\n"
+                    "Or simply type the city name.")
         return "Tell me your city for live weather!\nExample: 'weather in Pune' or 'Delhi mausam today'"
     
-    # 3. CROP advice
-    crop_keywords = ['crop', 'plant', 'sow', 'grow', 'best crop', 'which crop', 'fasal',
-                     'wheat', 'rice', 'maize', 'ragi', 'millets', 'barley', 'chickpea',
-                     'mustard', 'groundnut', 'watermelon', 'cucumber', 'muskmelon',
-                     'cotton', 'sugarcane', 'gehu', 'dhan', 'chawal', 'vate']
+    # 3. CROP advice - extended with Hindi names
+    crop_keywords = [
+        'crop', 'crops', 'plant', 'planting', 'sow', 'sowing', 'grow', 'growing',
+        'best crop', 'which crop', 'konsa', 'kaun sa', 'kaun si',
+        'fasal', 'fasalen', 'ugana', 'ugao', 'boo', 'boona',
+        # Specific crops (English + Hindi)
+        'wheat', 'gehu', 'gehun', 'rice', 'dhan', 'chawal', 'paddy',
+        'maize', 'makka', 'makki', 'corn',
+        'ragi', 'millets', 'bajra', 'jowar',
+        'barley', 'jau', 'chickpea', 'chana', 'gram',
+        'mustard', 'sarson', 'sarso', 'rai',
+        'groundnut', 'moongfali', 'mungfali', 'peanut',
+        'cotton', 'kapas', 'sugarcane', 'ganna',
+        'potato', 'aloo', 'onion', 'pyaz', 'pyaaz',
+        'tomato', 'tamatar', 'vegetables', 'sabzi', 'sabji',
+        'watermelon', 'tarbuj', 'cucumber', 'kheera', 'khira', 'muskmelon', 'kharbooja',
+    ]
     if any(kw in msg for kw in crop_keywords):
         response = _build_crop_response(location, weather, message)
         if response:
@@ -1152,17 +1392,42 @@ def generate_bot_response(message, language, location=None):
                     pass
             return response
     
-    # 4. SCHEME
-    if any(kw in msg for kw in ['scheme', 'yojana', 'subsidy', 'government', 'sarkar', 
-                                 'insurance', 'bima', 'pmfby', 'pm kisan', 'kcc', 'loan', 'relief']):
+    # 4. SCHEME - extended keywords
+    scheme_keywords = [
+        'scheme', 'schemes', 'yojana', 'yojna', 'yojnaye',
+        'subsidy', 'grant', 'government', 'sarkar', 'sarkari',
+        'insurance', 'bima', 'fasal bima',
+        'pmfby', 'pm kisan', 'pm-kisan', 'kcc', 'kisan credit',
+        'loan', 'karz', 'rin', 'udhar',
+        'relief', 'rahat', 'madad', 'sahayata', 'compensation', 'muavza'
+    ]
+    if any(kw in msg for kw in scheme_keywords):
         return _build_scheme_response(message)
     
-    # 5. PRICE
-    if any(kw in msg for kw in ['price', 'mandi', 'rate', 'cost', 'daam', 'bhav', 'msp', 'market']):
+    # 5. PRICE - extended keywords
+    price_keywords = [
+        'price', 'prices', 'rate', 'rates', 'cost',
+        'mandi', 'mandee', 'market',
+        'daam', 'dam', 'bhav', 'bhaw', 'mol',
+        'msp', 'minimum support', 'support price',
+        'sell', 'bechna', 'bech', 'selling', 'bikri',
+        'kitne', 'kitna', 'kya rate', 'kya bhav'
+    ]
+    if any(kw in msg for kw in price_keywords):
         return _build_price_response(message)
     
-    # 6. PEST
-    if any(kw in msg for kw in ['pest', 'disease', 'insect', 'kida', 'rog', 'fungus', 'yellow']):
+    # 6. PEST - extended keywords
+    pest_keywords = [
+        'pest', 'pests', 'disease', 'diseases', 'insect', 'insects',
+        'kida', 'kide', 'keeda', 'keede', 'makode',
+        'rog', 'bimari', 'beemari',
+        'fungus', 'phungus', 'fafundi', 'phaphoond',
+        'yellow', 'peela', 'pila', 'yellowing', 'leaf',
+        'brown', 'spots', 'daag', 'holes', 'ched',
+        'wilt', 'murjhana', 'dying', 'mar', 'sukh',
+        'spray', 'dawai', 'dawa', 'medicine', 'treatment', 'ilaj'
+    ]
+    if any(kw in msg for kw in pest_keywords):
         return _build_pest_response(message)
     
     # 7. Try AI for any other query
@@ -1179,15 +1444,16 @@ def generate_bot_response(message, language, location=None):
     season_crops = [c['name'] for c in _load_crops().get('crops', []) if c.get('season') == season]
     crop_list = ", ".join(season_crops) if season_crops else "wheat, mustard, chickpea"
     
-    return (f"I'm CropPilot, your farming assistant!\n\n"
-            f"Current Season: {season} ({months})\n"
-            f"Suitable Crops: {crop_list}\n\n"
+    return (f"🌾 I'm CropPilot, your farming assistant!\n\n"
+            f"📆 Current Season: {season} ({months})\n"
+            f"🌱 Suitable Crops: {crop_list}\n\n"
             f"Try asking:\n"
-            f"• 'Weather in Delhi'\n"
+            f"• 'Weather in Delhi' (मौसम बताओ)\n"
             f"• 'Best crop for Bangalore'\n"
-            f"• 'Can I harvest today in Pune'\n"
+            f"• 'Can I harvest wheat today in Pune'\n"
             f"• 'Tell me about PMFBY scheme'\n"
-            f"• 'Rice price'")
+            f"• 'Rice price' (चावल का भाव)\n\n"
+            f"🗣️ You can speak in Hindi, English, or Hinglish!")
 
 
 def get_ai_farming_response(user_query, language):
@@ -1206,28 +1472,40 @@ def get_ai_farming_response(user_query, language):
     }
     response_language = lang_names.get(language, 'English')
     
+    # Get current season for context
+    season, months = _get_season()
+    current_date = datetime.now().strftime("%B %d, %Y")
+    
     # Create a focused prompt for farming assistance
-    system_prompt = f"""You are an expert agricultural advisor for Indian farmers. Your name is CropPilot Assistant.
+    system_prompt = f"""You are CropPilot, an expert AI agricultural advisor for Indian farmers.
 
-IMPORTANT RULES:
-1. Answer ONLY questions related to farming, agriculture, crops, livestock, weather for farming, government agricultural schemes, market prices, and rural development.
-2. If the question is NOT related to farming/agriculture, politely say you can only help with farming-related queries.
-3. Keep responses concise (2-4 sentences) and practical for farmers.
-4. Respond in {response_language} language.
-5. Include specific, actionable advice when possible.
-6. For questions about timing (sowing, harvesting), provide India-specific information.
-7. Mention relevant government schemes or resources when applicable.
+CONTEXT:
+- Current Date: {current_date}
+- Current Season: {season} ({months})
+- Common Rabi crops: Wheat, Barley, Chickpea, Mustard, Lentils
+- Common Kharif crops: Rice, Maize, Cotton, Sugarcane, Groundnut
+- Zaid crops: Watermelon, Cucumber, Muskmelon
 
-User Question: {user_query}
+RULES:
+1. Answer ONLY farming/agriculture questions. For non-farming questions, politely redirect.
+2. Give specific, actionable advice - not generic statements.
+3. Respond in {response_language}. Use simple language farmers understand.
+4. Keep responses concise (3-5 sentences). Use bullet points for multiple tips.
+5. Include relevant numbers: ideal temperatures, water needs, timing, etc.
+6. Mention government helplines when relevant: Kisan Call Center 1800-180-1551
+7. For harvest questions: Consider humidity (<80%), no rain, clear weather.
+8. For pest issues: Recommend IPM first, chemicals as last resort.
 
-Provide a helpful, accurate response:"""
+USER QUERY: {user_query}
+
+Provide a helpful, accurate response with specific recommendations:"""
 
     try:
         response = gemini_model.generate_content(
             system_prompt,
             generation_config=genai.types.GenerationConfig(
-                max_output_tokens=300,
-                temperature=0.7
+                max_output_tokens=400,
+                temperature=0.6
             )
         )
         
