@@ -221,7 +221,7 @@ Secure phone-based authentication with state/district selection and instant lang
 ---
 
 ### 📊 Dashboard
-![Dashboard](screenshots/dashboard.png)
+![Dashboard](screenshots/dasgboard.png)
 
 The central hub showing quick access to all features, personalized greeting, and current weather summary. Clean, distraction-free interface optimized for low-bandwidth connections.
 
