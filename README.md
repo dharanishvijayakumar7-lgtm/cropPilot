@@ -21,6 +21,16 @@
 
 ---
 
+## 👥 Team
+
+| Name | Role |
+|------|------|
+| **[Your Name]** | Team Lead & Backend |
+| **[Teammate 2]** | Frontend Development |
+| **[Teammate 3]** | UI/UX Design |
+| **[Teammate 4]** | Research & Testing |
+
+
 ## 🌍 The Problem
 
 > **Every year, Indian farmers lose ₹50,000+ crore to preventable crop damage.**
@@ -372,14 +382,7 @@ Every line of code was written with one question: *"Will this help a farmer in V
 
 ---
 
-## 👥 Team
 
-| Name | Role |
-|------|------|
-| **[Your Name]** | Team Lead & Backend |
-| **[Teammate 2]** | Frontend Development |
-| **[Teammate 3]** | UI/UX Design |
-| **[Teammate 4]** | Research & Testing |
 
 ---
 
