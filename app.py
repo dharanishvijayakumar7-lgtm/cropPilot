@@ -126,58 +126,68 @@ if not OPENWEATHER_API_KEY or OPENWEATHER_API_KEY == 'YOUR_API_KEY_HERE':
 # ==================== DATABASE SETUP ====================
 
 def get_db_connection():
-    """Get SQLite database connection."""
-    conn = sqlite3.connect('croppilot.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Get SQLite database connection with error handling."""
+    try:
+        conn = sqlite3.connect('croppilot.db')
+        conn.row_factory = sqlite3.Row
+        return conn
+    except sqlite3.Error as e:
+        print(f"Database connection error: {e}")
+        raise
 
 def init_db():
     """Initialize the database with required tables."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Users table for authentication
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            phone TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            state TEXT,
-            district TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    # Farm logs table for Farmer Management System (linked to user)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS farm_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            crop_name TEXT NOT NULL,
-            sowing_date DATE NOT NULL,
-            expected_harvest_date DATE,
-            money_spent REAL DEFAULT 0,
-            money_earned REAL DEFAULT 0,
-            notes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-    """)
-    
-    # Migration: Add user_id column if it doesn't exist (for old databases)
     try:
-        cursor.execute("ALTER TABLE farm_logs ADD COLUMN user_id INTEGER")
-        print("✅ Migration: Added user_id column to farm_logs table")
-    except sqlite3.OperationalError:
-        pass  # Column already exists
-    
-    conn.commit()
-    conn.close()
-    print("✅ Database initialized successfully")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Users table for authentication
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                phone TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                state TEXT,
+                district TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Farm logs table for Farmer Management System (linked to user)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS farm_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                crop_name TEXT NOT NULL,
+                sowing_date DATE NOT NULL,
+                expected_harvest_date DATE,
+                money_spent REAL DEFAULT 0,
+                money_earned REAL DEFAULT 0,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+        """)
+        
+        # Migration: Add user_id column if it doesn't exist (for old databases)
+        try:
+            cursor.execute("ALTER TABLE farm_logs ADD COLUMN user_id INTEGER")
+            print("✅ Migration: Added user_id column to farm_logs table")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        conn.commit()
+        conn.close()
+        print("✅ Database initialized successfully")
+    except Exception as e:
+        print(f"❌ Database initialization error: {e}")
 
 # Initialize database on startup
-init_db()
+try:
+    init_db()
+except Exception as e:
+    print(f"❌ Failed to initialize database: {e}")
 
 # ==================== LOGIN REQUIRED DECORATOR ====================
 
@@ -512,7 +522,7 @@ def analyze_village_risk(lat, lon):
             'rainy_periods': rainy_periods,
             'cloudy_periods': cloudy_periods
         },
-        'forecast': weather.get('daily_forecast', [])
+        'forecast': weather.get('daily_forecasts', [])
     }
 
 def get_location_details(lat, lon):
@@ -1763,6 +1773,24 @@ def disaster_result():
 
 # ==================== MAIN ====================
 
+# ==================== GLOBAL ERROR HANDLERS ====================
+
+@app.errorhandler(404)
+def page_not_found(e):
+    """Handle 404 errors with friendly message."""
+    return render_template('login.html'), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    """Handle 500 errors with friendly message."""
+    return "<h1>Something went wrong</h1><p>Please try again later or contact support.</p><a href='/'>Go Home</a>", 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Handle unexpected exceptions gracefully."""
+    print(f"Unhandled exception: {e}")
+    return "<h1>Oops! Something went wrong</h1><p>Please try again later.</p><a href='/'>Go Home</a>", 500
+
 if __name__ == '__main__':
     print("\n" + "=" * 60)
     print("🌾 CropPilot - Starting...")
@@ -1778,4 +1806,6 @@ if __name__ == '__main__':
     print("\n🌐 Open http://127.0.0.1:5000 in your browser")
     print("=" * 60 + "\n")
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Use DEBUG from environment, default to False for production safety
+    DEBUG_MODE = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 'yes')
+    app.run(debug=DEBUG_MODE, host='0.0.0.0', port=5000)
