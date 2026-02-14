@@ -23,13 +23,13 @@
 
 ## 👥 Team
 
-| Name | Role |
-|------|------|
+| Name                         | Role Number     |
+|------------------------------|-----------------|
+| Mohammed Saif Shamshul Anis | 20251CSE0032     |
+| Allan Antony Fernandes      | 20251CSE0580     |
+| Aaron Michael               | 20251CCS0198     |
+| Dharanish Vijayakumar       | 20251CSE0085     |
 
-| Mohammed Saif Shamshul Anis | 20251CSE0032 |
-| Allan Antony Fernandes |  20251CSE0580 |
-| Aaron Michael | 20251CCS0198 |
-| Dharanish Vijayakumar | 20251CSE0085 |
 
 
 ## 🌍 The Problem
