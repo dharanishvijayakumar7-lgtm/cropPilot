@@ -25,10 +25,11 @@
 
 | Name | Role |
 |------|------|
-| **[Your Name]** | Team Lead & Backend |
-| **[Teammate 2]** | Frontend Development |
-| **[Teammate 3]** | UI/UX Design |
-| **[Teammate 4]** | Research & Testing |
+
+| Mohammed Saif Shamshul Anis | 20251CSE0032 |
+| Allan Antony Fernandes |  20251CSE0580 |
+| Aaron Michael | 20251CCS0198 |
+| Dharanish Vijayakumar | 20251CSE0085 |
 
 
 ## 🌍 The Problem
@@ -89,6 +90,16 @@ Click anywhere on the map or auto-detect your GPS coordinates. Get color-coded r
 > **Hands-free farming guidance in Hindi and English**
 
 Just tap and speak: *"Can I harvest wheat today in Pune?"* — and get instant, intelligent responses covering weather, harvesting, spraying, pest alerts, and more.
+
+> **Note:** The voice assistant is a constrained-domain bot focused only on agriculture topics — ensuring faster, accurate, and reliable responses while keeping the system lightweight. Future versions may expand into multilingual AI, image-based crop diagnosis, and personalized farm insights.
+
+**Sample Questions:**
+| ✅ Supported | ❌ Fallback (Out of Scope) |
+|-------------|---------------------------|
+| "Is it safe to spray pesticides today?" | "What's the stock market price?" |
+| "When should I harvest rice in Bangalore?" | "Book a flight to Delhi" |
+| "What's the weather forecast for my village?" | "Tell me a joke" |
+| "Should I irrigate my wheat field today?" | "Who won the cricket match?" |
 
 ---
 
