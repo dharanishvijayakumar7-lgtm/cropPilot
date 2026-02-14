@@ -299,8 +299,70 @@
         }
 
         .priority-badge.low {
-            background: var(--bg-sidebar);
-            color: var(--text-secondary);
+            background: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
+            color: white;
+        }
+
+        .suggestion-badge {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .fallback-badge {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .confidence-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .confidence-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .confidence-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+
+        .confidence-dot.filled {
+            background: var(--primary);
+        }
+
+        .match-info {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        .match-info span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .scheme-body {
@@ -634,10 +696,35 @@
                 <div>
                     <div class="scheme-name">{{ scheme.name }}</div>
                     <p class="scheme-desc">{{ scheme.description }}</p>
+                    {% if scheme.match_confidence %}
+                    <div class="confidence-indicator">
+                        <span>Match confidence:</span>
+                        <div class="confidence-dots">
+                            <div class="confidence-dot {% if scheme.match_confidence in ['high', 'medium', 'low'] %}filled{% endif %}"></div>
+                            <div class="confidence-dot {% if scheme.match_confidence in ['high', 'medium'] %}filled{% endif %}"></div>
+                            <div class="confidence-dot {% if scheme.match_confidence == 'high' %}filled{% endif %}"></div>
+                        </div>
+                        <span>{{ scheme.match_confidence|title }}</span>
+                    </div>
+                    {% endif %}
+                    {% if scheme.crop_matched or scheme.disaster_matched %}
+                    <div class="match-info">
+                        {% if scheme.crop_matched %}
+                        <span>🌾 Crop: {{ scheme.crop_matched }}</span>
+                        {% endif %}
+                        {% if scheme.disaster_matched %}
+                        <span>⚠️ Disaster: {{ scheme.disaster_matched|replace('_', ' ')|title }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
-                {% if scheme.priority_score >= 30 %}
+                {% if scheme.is_suggestion %}
+                <span class="suggestion-badge">Also Eligible</span>
+                {% elif scheme.is_fallback %}
+                <span class="fallback-badge">General Relief</span>
+                {% elif scheme.match_confidence == 'high' %}
                 <span class="priority-badge high">{{ t('best_match') }}</span>
-                {% elif scheme.priority_score >= 15 %}
+                {% elif scheme.match_confidence == 'medium' %}
                 <span class="priority-badge medium">{{ t('good_match') }}</span>
                 {% else %}
                 <span class="priority-badge low">{{ t('eligible') }}</span>
@@ -695,14 +782,25 @@
         {% endfor %}
 
         {% else %}
+        <!-- This section should rarely appear now - fallback schemes are always provided -->
         <div class="no-schemes">
-            <div class="icon">😔</div>
-            <h3>{{ t('no_schemes_found') }}</h3>
-            <p>{{ t('contact_local_office') }}</p>
+            <div class="icon">🔍</div>
+            <h3>{{ t('searching_schemes') if t('searching_schemes') != 'searching_schemes' else 'Searching for Schemes' }}</h3>
+            <p>{{ t('contact_local_office') if t('contact_local_office') != 'contact_local_office' else 'We are finding the best schemes for you. If no results appear, please contact your local agriculture office.' }}</p>
             <div class="helpline-box">
-                <div>{{ t('kisan_call_center') }}</div>
+                <div>{{ t('kisan_call_center') if t('kisan_call_center') != 'kisan_call_center' else 'Kisan Call Center' }}</div>
                 <div class="number">📞 1800-180-1551</div>
-                <div style="font-size: 0.85rem; color: #666; margin-top: 4px;">{{ t('toll_free') }}</div>
+                <div style="font-size: 0.85rem; color: #666; margin-top: 4px;">{{ t('toll_free') if t('toll_free') != 'toll_free' else 'Toll Free - 24x7' }}</div>
+            </div>
+            
+            <div style="margin-top: 24px; padding: 16px; background: #fff3cd; border-radius: 12px; text-align: left;">
+                <strong>💡 Tips to improve your search:</strong>
+                <ul style="margin: 12px 0 0 20px; line-height: 1.8;">
+                    <li>Try selecting "Other" as crop type for general schemes</li>
+                    <li>Select "Other / General Disaster" for broader matches</li>
+                    <li>Small farmers (&lt;2 hectares) are eligible for more schemes</li>
+                    <li>Having crop insurance (PMFBY) unlocks additional compensation</li>
+                </ul>
             </div>
         </div>
         {% endif %}

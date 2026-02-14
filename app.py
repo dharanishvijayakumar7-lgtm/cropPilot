@@ -211,67 +211,422 @@ def load_schemes_data():
     except FileNotFoundError:
         return {"schemes": [], "disaster_types": [], "crops": [], "states": []}
 
+# ==================== INTELLIGENT CROP & DISASTER MAPPING ====================
+
+# Crop category mapping - maps aliases and categories to standard crop names
+CROP_CATEGORIES = {
+    # Cereals / Grains
+    'cereals': ['Rice', 'Wheat', 'Maize', 'Barley', 'Millets', 'Ragi', 'Jowar', 'Bajra', 'Sorghum'],
+    'grains': ['Rice', 'Wheat', 'Maize', 'Barley', 'Millets', 'Ragi', 'Jowar', 'Bajra', 'Sorghum'],
+    
+    # Pulses
+    'pulses': ['Chickpea', 'Lentils', 'Pigeon Pea', 'Peas', 'Moong', 'Urad', 'Masoor'],
+    'dals': ['Chickpea', 'Lentils', 'Pigeon Pea', 'Peas', 'Moong', 'Urad', 'Masoor'],
+    
+    # Oilseeds
+    'oilseeds': ['Groundnut', 'Mustard', 'Sunflower', 'Soybean', 'Sesame', 'Castor'],
+    
+    # Vegetables
+    'vegetables': ['Potato', 'Onion', 'Tomato', 'Brinjal', 'Cabbage', 'Cauliflower', 'Chilli', 'Garlic', 'Ginger'],
+    'sabzi': ['Potato', 'Onion', 'Tomato', 'Brinjal', 'Cabbage', 'Cauliflower', 'Chilli', 'Garlic', 'Ginger'],
+    
+    # Fruits
+    'fruits': ['Banana', 'Mango', 'Papaya', 'Watermelon', 'Muskmelon', 'Cucumber', 'Grapes', 'Orange', 'Apple'],
+    'phal': ['Banana', 'Mango', 'Papaya', 'Watermelon', 'Muskmelon', 'Cucumber', 'Grapes', 'Orange', 'Apple'],
+    
+    # Cash crops
+    'cash_crops': ['Cotton', 'Sugarcane', 'Jute', 'Tobacco'],
+    
+    # Spices
+    'spices': ['Turmeric', 'Ginger', 'Chilli', 'Cardamom', 'Pepper', 'Cumin', 'Coriander'],
+    'masale': ['Turmeric', 'Ginger', 'Chilli', 'Cardamom', 'Pepper', 'Cumin', 'Coriander'],
+    
+    # Plantation crops
+    'plantation': ['Tea', 'Coffee', 'Coconut', 'Arecanut', 'Rubber', 'Cashew'],
+}
+
+# Crop aliases - maps common names/misspellings to standard names
+CROP_ALIASES = {
+    # Rice aliases
+    'paddy': 'Rice', 'dhan': 'Rice', 'chawal': 'Rice', 'rice paddy': 'Rice',
+    'dhaan': 'Rice', 'chaawal': 'Rice',
+    
+    # Wheat aliases
+    'gehu': 'Wheat', 'gehun': 'Wheat', 'gahu': 'Wheat', 'atta': 'Wheat',
+    
+    # Maize aliases
+    'corn': 'Maize', 'makka': 'Maize', 'makki': 'Maize', 'bhutta': 'Maize',
+    
+    # Millets aliases
+    'bajra': 'Millets', 'jowar': 'Millets', 'ragi': 'Millets', 'nachni': 'Ragi',
+    'sorghum': 'Jowar', 'pearl millet': 'Bajra', 'finger millet': 'Ragi',
+    
+    # Pulses aliases
+    'chana': 'Chickpea', 'gram': 'Chickpea', 'chole': 'Chickpea', 'kabuli chana': 'Chickpea',
+    'masoor': 'Lentils', 'dal': 'Lentils', 'arhar': 'Pigeon Pea', 'tur': 'Pigeon Pea', 'toor': 'Pigeon Pea',
+    'matar': 'Peas', 'green peas': 'Peas',
+    'moong': 'Moong', 'mung': 'Moong', 'green gram': 'Moong',
+    'urad': 'Urad', 'black gram': 'Urad',
+    
+    # Oilseeds aliases
+    'sarson': 'Mustard', 'sarso': 'Mustard', 'rai': 'Mustard',
+    'moongfali': 'Groundnut', 'mungfali': 'Groundnut', 'peanut': 'Groundnut', 'peanuts': 'Groundnut',
+    'til': 'Sesame', 'gingelly': 'Sesame',
+    
+    # Vegetables aliases
+    'aloo': 'Potato', 'alu': 'Potato', 'aaloo': 'Potato',
+    'pyaz': 'Onion', 'pyaaz': 'Onion', 'kanda': 'Onion',
+    'tamatar': 'Tomato', 'tamaatar': 'Tomato',
+    'baingan': 'Brinjal', 'baigan': 'Brinjal', 'eggplant': 'Brinjal', 'aubergine': 'Brinjal',
+    'patta gobhi': 'Cabbage', 'band gobhi': 'Cabbage',
+    'phool gobhi': 'Cauliflower', 'gobi': 'Cauliflower',
+    'mirchi': 'Chilli', 'mirch': 'Chilli', 'green chilli': 'Chilli',
+    'lehsun': 'Garlic', 'lahsun': 'Garlic',
+    'adrak': 'Ginger', 'adrakh': 'Ginger',
+    'haldi': 'Turmeric',
+    
+    # Fruits aliases
+    'kela': 'Banana', 'aam': 'Mango', 'papita': 'Papaya',
+    'tarbuz': 'Watermelon', 'tarbooz': 'Watermelon',
+    'kharbooja': 'Muskmelon', 'kharbuza': 'Muskmelon',
+    'kakdi': 'Cucumber', 'kheera': 'Cucumber',
+    'angur': 'Grapes', 'angoor': 'Grapes',
+    'santra': 'Orange', 'narangi': 'Orange',
+    'seb': 'Apple',
+    
+    # Cash crops aliases
+    'kapas': 'Cotton', 'rui': 'Cotton', 'narma': 'Cotton',
+    'ganna': 'Sugarcane', 'ikh': 'Sugarcane', 'ganne': 'Sugarcane',
+    'joot': 'Jute', 'pat': 'Jute',
+    
+    # Plantation aliases
+    'chai': 'Tea', 'coffee': 'Coffee',
+    'nariyal': 'Coconut', 'narial': 'Coconut',
+    'supari': 'Arecanut',
+    'kaju': 'Cashew',
+}
+
+# Disaster normalization - maps similar disaster types together
+DISASTER_MAPPING = {
+    # Flood-related
+    'flood': ['flood', 'heavy_rain', 'waterlogging', 'inundation'],
+    'heavy_rain': ['flood', 'heavy_rain', 'waterlogging'],
+    'waterlogging': ['flood', 'waterlogging'],
+    
+    # Drought-related
+    'drought': ['drought', 'water_scarcity', 'dry_spell'],
+    'no_rain': ['drought'],
+    'water_scarcity': ['drought'],
+    'dry_spell': ['drought'],
+    
+    # Storm-related
+    'cyclone': ['cyclone', 'storm', 'hurricane', 'typhoon'],
+    'storm': ['cyclone', 'storm'],
+    'hurricane': ['cyclone'],
+    'typhoon': ['cyclone'],
+    
+    # Cold-related
+    'hailstorm': ['hailstorm', 'frost', 'cold_wave'],
+    'frost': ['hailstorm', 'frost', 'cold_wave'],
+    'cold_wave': ['frost', 'cold_wave'],
+    
+    # Heat-related
+    'heatwave': ['heatwave', 'heat_stress'],
+    'heat_stress': ['heatwave'],
+    
+    # Pest-related
+    'pest_attack': ['pest_attack', 'insect_attack', 'locust'],
+    'insect_attack': ['pest_attack'],
+    'locust': ['pest_attack'],
+    
+    # Disease-related
+    'disease': ['disease', 'crop_disease', 'fungal_infection'],
+    'crop_disease': ['disease'],
+    'fungal_infection': ['disease'],
+    
+    # Others
+    'earthquake': ['earthquake', 'landslide'],
+    'landslide': ['landslide', 'earthquake'],
+    'unseasonal_rain': ['flood', 'hailstorm'],  # Can cause both
+    'fire': ['fire'],
+}
+
+# Disaster aliases for user input normalization
+DISASTER_ALIASES = {
+    # Flood
+    'baarish': 'heavy_rain', 'barish': 'heavy_rain', 'heavy rain': 'heavy_rain',
+    'bahut baarish': 'heavy_rain', 'paani': 'flood', 'baadh': 'flood', 'badh': 'flood',
+    
+    # Drought
+    'sukha': 'drought', 'no rain': 'drought', 'bina baarish': 'drought',
+    'paani ki kami': 'drought', 'water shortage': 'drought',
+    
+    # Storm
+    'toofan': 'cyclone', 'toofaan': 'cyclone', 'aandhi': 'storm', 'andhi': 'storm',
+    'cyclonic storm': 'cyclone', 'tufan': 'cyclone',
+    
+    # Hail
+    'ole': 'hailstorm', 'hail': 'hailstorm', 'olavrishti': 'hailstorm',
+    'barf': 'frost', 'pala': 'frost', 'frost damage': 'frost',
+    
+    # Heat
+    'loo': 'heatwave', 'garmi': 'heatwave', 'heat wave': 'heatwave', 'bahut garmi': 'heatwave',
+    
+    # Pests
+    'keede': 'pest_attack', 'kida': 'pest_attack', 'keeda': 'pest_attack',
+    'tiddi': 'pest_attack', 'locust attack': 'pest_attack', 'insects': 'pest_attack',
+    
+    # Disease
+    'rog': 'disease', 'bimari': 'disease', 'beemari': 'disease',
+    'fungus': 'disease', 'infection': 'disease',
+    
+    # Others
+    'bhukamp': 'earthquake', 'bhuchal': 'earthquake',
+    'pahad girana': 'landslide', 'landslip': 'landslide',
+    'aag': 'fire', 'fire': 'fire',
+}
+
+
+def normalize_crop(crop_input):
+    """
+    Normalize crop name to standard format.
+    Returns tuple: (normalized_crop, match_type, related_crops)
+    match_type: 'exact', 'alias', 'category', 'fuzzy', 'unknown'
+    """
+    if not crop_input:
+        return (None, 'unknown', [])
+    
+    crop_lower = crop_input.strip().lower()
+    crop_title = crop_input.strip().title()
+    
+    # Load valid crops from schemes data
+    schemes_data = load_schemes_data()
+    valid_crops = [c.lower() for c in schemes_data.get('crops', [])]
+    
+    # 1. Exact match (case-insensitive)
+    if crop_lower in valid_crops:
+        return (crop_title, 'exact', [])
+    
+    # 2. Alias match
+    if crop_lower in CROP_ALIASES:
+        normalized = CROP_ALIASES[crop_lower]
+        return (normalized, 'alias', [])
+    
+    # 3. Category match - returns all crops in that category
+    if crop_lower in CROP_CATEGORIES:
+        category_crops = CROP_CATEGORIES[crop_lower]
+        return (category_crops[0], 'category', category_crops)
+    
+    # 4. Fuzzy match - find similar crop names
+    for standard_crop in valid_crops:
+        # Check if input is substring of crop name or vice versa
+        if crop_lower in standard_crop or standard_crop in crop_lower:
+            return (standard_crop.title(), 'fuzzy', [])
+        
+        # Check first 4 characters match
+        if len(crop_lower) >= 4 and len(standard_crop) >= 4:
+            if crop_lower[:4] == standard_crop[:4]:
+                return (standard_crop.title(), 'fuzzy', [])
+    
+    # 5. Check aliases for partial match
+    for alias, standard in CROP_ALIASES.items():
+        if alias in crop_lower or crop_lower in alias:
+            return (standard, 'fuzzy', [])
+    
+    # 6. Not found - return original with 'unknown' type
+    return (crop_title, 'unknown', [])
+
+
+def normalize_disaster(disaster_input):
+    """
+    Normalize disaster type to standard format.
+    Returns tuple: (normalized_disaster, match_type, related_disasters)
+    """
+    if not disaster_input:
+        return (None, 'unknown', [])
+    
+    disaster_lower = disaster_input.strip().lower().replace(' ', '_')
+    
+    # 1. Exact match in disaster mapping
+    if disaster_lower in DISASTER_MAPPING:
+        return (disaster_lower, 'exact', DISASTER_MAPPING[disaster_lower])
+    
+    # 2. Check aliases
+    if disaster_lower in DISASTER_ALIASES:
+        normalized = DISASTER_ALIASES[disaster_lower]
+        related = DISASTER_MAPPING.get(normalized, [normalized])
+        return (normalized, 'alias', related)
+    
+    # 3. Check with underscores removed
+    disaster_no_underscore = disaster_lower.replace('_', '')
+    for key in DISASTER_MAPPING:
+        if key.replace('_', '') == disaster_no_underscore:
+            return (key, 'fuzzy', DISASTER_MAPPING[key])
+    
+    # 4. Partial match
+    for key in DISASTER_MAPPING:
+        if disaster_lower in key or key in disaster_lower:
+            return (key, 'fuzzy', DISASTER_MAPPING[key])
+    
+    # 5. Check aliases for partial match
+    for alias, standard in DISASTER_ALIASES.items():
+        if alias.replace(' ', '_') in disaster_lower or disaster_lower in alias.replace(' ', '_'):
+            related = DISASTER_MAPPING.get(standard, [standard])
+            return (standard, 'fuzzy', related)
+    
+    # 6. Unknown - return general disaster
+    return ('general', 'unknown', ['flood', 'drought', 'cyclone', 'hailstorm', 'pest_attack', 'disease'])
+
+
 def find_eligible_schemes(crop, disaster_type, land_size, has_insurance, damage_percent=50, has_kcc=False):
-    """Find eligible government schemes based on farmer inputs with priority scoring."""
+    """
+    Find eligible government schemes with INTELLIGENT matching.
+    Features:
+    - Crop normalization (aliases, categories, fuzzy matching)
+    - Disaster normalization (similar disasters grouped)
+    - Scoring-based relevance ranking
+    - NEVER returns empty - always provides fallback suggestions
+    """
     schemes_data = load_schemes_data()
     eligible_schemes = []
+    fallback_schemes = []
+    
+    # Normalize inputs
+    normalized_crop, crop_match_type, related_crops = normalize_crop(crop)
+    normalized_disaster, disaster_match_type, related_disasters = normalize_disaster(disaster_type)
+    
+    # Debug logging (helps future debugging)
+    print(f"[Disaster Help] Input crop: '{crop}' → Normalized: '{normalized_crop}' ({crop_match_type})")
+    print(f"[Disaster Help] Input disaster: '{disaster_type}' → Normalized: '{normalized_disaster}' ({disaster_match_type})")
+    if related_crops:
+        print(f"[Disaster Help] Related crops: {related_crops}")
+    if related_disasters:
+        print(f"[Disaster Help] Related disasters: {related_disasters}")
+    
+    # Build list of crops to check (includes related crops from category)
+    crops_to_check = [normalized_crop]
+    if related_crops:
+        crops_to_check.extend(related_crops)
+    crops_to_check = list(set([c for c in crops_to_check if c]))  # Remove duplicates and None
+    
+    # Build list of disasters to check
+    disasters_to_check = related_disasters if related_disasters else [normalized_disaster]
+    disasters_to_check = list(set([d for d in disasters_to_check if d]))
     
     for scheme in schemes_data.get('schemes', []):
-        # Check disaster type match
-        if disaster_type not in scheme.get('disaster_types', []):
-            continue
+        scheme_disasters = scheme.get('disaster_types', [])
+        scheme_crops = scheme.get('eligible_crops', [])
+        scheme_crops_lower = [c.lower() for c in scheme_crops]
         
-        # Check crop eligibility
-        eligible_crops = scheme.get('eligible_crops', [])
-        if crop not in eligible_crops and 'All Crops' not in eligible_crops:
-            continue
+        # Calculate match scores
+        crop_score = 0
+        disaster_score = 0
+        match_reasons = []
+        
+        # Check crop match
+        crop_matched = False
+        matched_crop_name = None
+        
+        # Check for "All Crops" or "all" in scheme
+        if 'All Crops' in scheme_crops or 'all' in scheme_crops_lower or 'general' in scheme_crops_lower:
+            crop_matched = True
+            crop_score = 20  # Lower score for generic match
+            matched_crop_name = "All Crops"
+            match_reasons.append("✓ This scheme covers all crop types")
+        else:
+            # Check each crop we're looking for
+            for check_crop in crops_to_check:
+                if check_crop and check_crop.lower() in scheme_crops_lower:
+                    crop_matched = True
+                    matched_crop_name = check_crop
+                    if check_crop.lower() == normalized_crop.lower() if normalized_crop else False:
+                        crop_score = 50  # Exact match
+                        match_reasons.append(f"✓ Your crop ({crop}) is directly covered")
+                    else:
+                        crop_score = 35  # Related crop match
+                        match_reasons.append(f"✓ Related crop ({check_crop}) is covered")
+                    break
+        
+        # Check disaster match
+        disaster_matched = False
+        matched_disaster_name = None
+        
+        # Check for "general" or "all" disaster support
+        if 'general' in scheme_disasters or 'all' in scheme_disasters:
+            disaster_matched = True
+            disaster_score = 20
+            matched_disaster_name = "General Disaster"
+            match_reasons.append("✓ This scheme covers general disaster relief")
+        else:
+            for check_disaster in disasters_to_check:
+                if check_disaster in scheme_disasters:
+                    disaster_matched = True
+                    matched_disaster_name = check_disaster
+                    if check_disaster == normalized_disaster:
+                        disaster_score = 50  # Exact match
+                        match_reasons.append(f"✓ Disaster type ({disaster_type.replace('_', ' ').title()}) is covered")
+                    else:
+                        disaster_score = 35  # Related disaster match
+                        match_reasons.append(f"✓ Related disaster type ({check_disaster.replace('_', ' ').title()}) is covered")
+                    break
         
         # Check land size
         min_land = scheme.get('min_land_size', 0)
         max_land = scheme.get('max_land_size', 999)
-        if land_size < min_land or land_size > max_land:
-            continue
+        land_eligible = min_land <= land_size <= max_land
         
         # Check insurance requirement
+        insurance_ok = True
         if scheme.get('requires_insurance', False) and not has_insurance:
-            continue
+            insurance_ok = False
         
-        # Calculate priority score (higher = better match)
-        priority_score = 0
+        # Calculate total priority score
+        priority_score = crop_score + disaster_score
         
-        # Build eligibility reasons
-        reasons = []
-        reasons.append(f"✓ Your crop ({crop}) is covered under this scheme")
-        reasons.append(f"✓ Disaster type ({disaster_type.replace('_', ' ').title()}) is eligible")
-        reasons.append(f"✓ Your land size ({land_size} hectares) meets the criteria")
-        
-        if has_insurance and scheme.get('requires_insurance'):
-            reasons.append("✓ You have crop insurance which qualifies for claims")
-            priority_score += 20
+        # Bonus scores
+        if land_eligible:
+            match_reasons.append(f"✓ Your land size ({land_size} hectares) meets criteria")
+            priority_score += 10
         
         if land_size <= 2:
-            reasons.append("✓ Small/marginal farmer benefits may apply")
+            match_reasons.append("✓ Small/marginal farmer - priority benefits apply")
             priority_score += 15
         
-        # Damage-based prioritization
+        if has_insurance and scheme.get('requires_insurance'):
+            match_reasons.append("✓ Crop insurance qualifies you for claims")
+            priority_score += 20
+        elif has_insurance and not scheme.get('requires_insurance'):
+            match_reasons.append("✓ Additional insurance coverage available")
+            priority_score += 10
+        
         if damage_percent >= 75:
             priority_score += 25
-            reasons.append("✓ Severe damage (>75%) qualifies for maximum compensation")
+            match_reasons.append("✓ Severe damage (>75%) qualifies for maximum relief")
         elif damage_percent >= 50:
             priority_score += 15
-            reasons.append("✓ High damage (50-75%) eligible for substantial relief")
+            match_reasons.append("✓ Significant damage (50-75%) eligible for relief")
+        elif damage_percent >= 33:
+            priority_score += 10
+            match_reasons.append("✓ Moderate damage (33-50%) may qualify for partial relief")
         
-        # KCC holder benefits
         if has_kcc and 'kcc' in scheme.get('id', '').lower():
             priority_score += 30
-            reasons.append("✓ KCC holder - eligible for loan restructuring benefits")
+            match_reasons.append("✓ KCC holder - eligible for loan restructuring")
         
-        # Estimate compensation based on damage
+        # Calculate estimated compensation
         max_amount = scheme.get('max_amount', 0)
         comp_percent = scheme.get('compensation_percent', 100)
         estimated_amount = int((max_amount * min(damage_percent, comp_percent)) / 100)
         
-        eligible_schemes.append({
+        # Determine match confidence
+        if crop_score >= 50 and disaster_score >= 50:
+            match_confidence = 'high'
+        elif crop_score >= 35 or disaster_score >= 35:
+            match_confidence = 'medium'
+        else:
+            match_confidence = 'low'
+        
+        scheme_result = {
             'id': scheme.get('id'),
             'name': scheme.get('name'),
             'description': scheme.get('description'),
@@ -282,14 +637,113 @@ def find_eligible_schemes(crop, disaster_type, land_size, has_insurance, damage_
             'steps': scheme.get('application_steps', []),
             'helpline': scheme.get('helpline', 'N/A'),
             'website': scheme.get('website', '#'),
-            'reasons': reasons,
-            'priority_score': priority_score
-        })
+            'reasons': match_reasons,
+            'priority_score': priority_score,
+            'match_confidence': match_confidence,
+            'crop_matched': matched_crop_name,
+            'disaster_matched': matched_disaster_name,
+        }
+        
+        # Categorize scheme
+        if crop_matched and disaster_matched and land_eligible and insurance_ok:
+            # Full match
+            eligible_schemes.append(scheme_result)
+        elif (crop_matched or disaster_matched) and land_eligible:
+            # Partial match - add to fallback
+            scheme_result['reasons'].insert(0, "⚡ Partial match - verify eligibility with helpline")
+            scheme_result['match_confidence'] = 'low'
+            fallback_schemes.append(scheme_result)
+        elif scheme.get('id') in ['sdrf', 'pmfby', 'small_farmer_relief']:
+            # Always include major government schemes as fallback
+            scheme_result['reasons'] = [
+                "ℹ️ General relief scheme - may apply based on state declaration",
+                f"✓ Land size ({land_size} hectares) eligible" if land_eligible else f"⚠️ Check land size criteria",
+            ]
+            scheme_result['match_confidence'] = 'low'
+            scheme_result['priority_score'] = 5
+            fallback_schemes.append(scheme_result)
     
-    # Sort by priority score (highest first)
+    # Sort by priority score
     eligible_schemes.sort(key=lambda x: x.get('priority_score', 0), reverse=True)
+    fallback_schemes.sort(key=lambda x: x.get('priority_score', 0), reverse=True)
     
-    return eligible_schemes
+    # Log results
+    print(f"[Disaster Help] Found {len(eligible_schemes)} direct matches, {len(fallback_schemes)} fallback options")
+    
+    # If we have eligible schemes, return them
+    if eligible_schemes:
+        # Add top fallbacks as "You may also be eligible" section
+        if fallback_schemes:
+            # Mark top 2 fallbacks as suggestions and append
+            for fb in fallback_schemes[:2]:
+                fb['is_suggestion'] = True
+                fb['reasons'].insert(0, "💡 You may also qualify for this scheme")
+                eligible_schemes.append(fb)
+        return eligible_schemes
+    
+    # No direct matches - return fallback schemes with helpful message
+    if fallback_schemes:
+        for fb in fallback_schemes:
+            fb['reasons'].insert(0, "📋 Showing relevant schemes based on partial match")
+        return fallback_schemes
+    
+    # Absolute fallback - return generic government schemes
+    generic_schemes = []
+    for scheme in schemes_data.get('schemes', []):
+        if scheme.get('id') in ['sdrf', 'pmfby', 'input_subsidy', 'small_farmer_relief']:
+            generic_schemes.append({
+                'id': scheme.get('id'),
+                'name': scheme.get('name'),
+                'description': scheme.get('description'),
+                'max_amount': scheme.get('max_amount', 0),
+                'estimated_amount': int(scheme.get('max_amount', 0) * damage_percent / 100),
+                'compensation_percent': scheme.get('compensation_percent', 100),
+                'documents': scheme.get('documents_required', []),
+                'steps': scheme.get('application_steps', []),
+                'helpline': scheme.get('helpline', 'N/A'),
+                'website': scheme.get('website', '#'),
+                'reasons': [
+                    f"📋 General government relief scheme",
+                    f"ℹ️ Your crop ({crop}) may qualify - contact helpline to verify",
+                    f"ℹ️ Disaster ({disaster_type.replace('_', ' ').title()}) relief available if declared by state",
+                    "📞 Call helpline for eligibility confirmation"
+                ],
+                'priority_score': 5,
+                'match_confidence': 'low',
+                'is_fallback': True,
+            })
+    
+    if generic_schemes:
+        print("[Disaster Help] Returning generic fallback schemes")
+        return generic_schemes
+    
+    # This should never happen, but just in case
+    print("[Disaster Help] WARNING: No schemes found at all - returning empty suggestions")
+    return [{
+        'id': 'contact_helpline',
+        'name': 'Contact Kisan Call Center',
+        'description': 'No matching schemes found in database. Contact the Kisan Call Center for personalized assistance.',
+        'max_amount': 0,
+        'estimated_amount': 0,
+        'compensation_percent': 0,
+        'documents': ['Aadhaar Card', 'Land Records', 'Damage Photos'],
+        'steps': [
+            'Call 1800-180-1551 (Toll Free)',
+            'Explain your crop and disaster situation',
+            'Ask about available schemes in your state',
+            'Visit nearest Krishi Vigyan Kendra for guidance'
+        ],
+        'helpline': '1800-180-1551',
+        'website': 'https://agricoop.nic.in',
+        'reasons': [
+            f"⚠️ No exact match found for {crop} + {disaster_type.replace('_', ' ').title()}",
+            "📞 Contact helpline for state-specific schemes",
+            "🏛️ Visit local agriculture office for assistance"
+        ],
+        'priority_score': 1,
+        'match_confidence': 'low',
+        'is_fallback': True,
+    }]
 
 # ==================== WEATHER RISK ANALYSIS ====================
 
