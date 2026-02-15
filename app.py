@@ -109,6 +109,16 @@ def set_language(lang_code):
     # Redirect back to the previous page or dashboard
     return redirect(request.referrer or url_for('dashboard'))
 
+# ==================== HEALTH CHECK ENDPOINT ====================
+
+@app.route('/ping')
+def ping():
+    """
+    Public health check endpoint for cron-job.org and Render.
+    Returns HTTP 200 with no auth, no redirects, no DB calls.
+    """
+    return 'pong', 200
+
 # OpenWeather API configuration
 # Get your free API key from: https://openweathermap.org/api
 OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY', 'YOUR_API_KEY_HERE')
